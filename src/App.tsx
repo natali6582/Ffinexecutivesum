@@ -1,0 +1,844 @@
+import { useState, useEffect } from "react";
+import { 
+  Plus, 
+  Trash2, 
+  Loader2, 
+  CheckCircle, 
+  AlertCircle, 
+  Printer, 
+  Code, 
+  ChevronRight, 
+  Sparkles, 
+  Layers
+} from "lucide-react";
+import { Holding, AnalysisResponse } from "./types";
+import { PRESET_PORTFOLIOS } from "./presets";
+
+// Client-side helper to validate ISIN (12 alphanumeric chars)
+function isValidISIN(isin: string): boolean {
+  if (!isin) return false;
+  const cleaned = isin.trim().toUpperCase();
+  return /^[A-Z]{2}[A-Z0-9]{9}\d$/.test(cleaned);
+}
+
+export default function App() {
+  // State for raw list of assets
+  const [holdings, setHoldings] = useState<Holding[]>(() => {
+    // Start with the first preset
+    return JSON.parse(JSON.stringify(PRESET_PORTFOLIOS[0].holdings));
+  });
+
+  const [selectedPresetIndex, setSelectedPresetIndex] = useState<number>(0);
+
+  // App running states
+  const [loading, setLoading] = useState<boolean>(false);
+  const [loadingStep, setLoadingStep] = useState<number>(0);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Received analysis state
+  const [reportData, setReportData] = useState<AnalysisResponse | null>(null);
+  
+  // Secondary views
+  const [rawView, setRawView] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+
+  // Staggered loading messages to represent real web crawls
+  const loadingSteps = [
+    { title: "מנתח את משקלי האחזקות...", desc: "ממיין נכסים לפי משקל יחסי ומזהה מזהי ISIN בעלי תוקף." },
+    { title: "מריץ שאילתות חיפוש ממוקדות ב-Google...", desc: "מחפש דוחות רבעוניים, הנחיות מנכ\"לים, גיוסי הון וסוגיות רגולציה מהחודש האחרון." },
+    { title: "מרכז ממצאים מתוך Bloomberg, Reuters ו-Globes...", desc: "מסנן עדכונים רשמיים, מהימנים ומצמצם מקורות כפולים לרשימה נקייה." },
+    { title: "מגבש סיכום מנהלים אינטגרטיבי בעברית...", desc: "בונה ניתוח נרטיבי של סיכוני התיק לפי כללי Compliance מחמירים וללא שינוי אחוזים." },
+    { title: "מבצע תיקוף ובקרת איכות על נקודות הביקורת...", desc: "מוודא אי החלת המלצות החזקה/קנייה וניסוח בקרות ניטרליות בלבד." }
+  ];
+
+  useEffect(() => {
+    let interval: any;
+    if (loading) {
+      setLoadingStep(0);
+      interval = setInterval(() => {
+        setLoadingStep((prev) => {
+          if (prev < loadingSteps.length - 1) {
+            return prev + 1;
+          }
+          return prev;
+        });
+      }, 2500);
+    } else {
+      setLoadingStep(0);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
+
+  // Load a preset portfolio
+  const handleLoadPreset = (index: number) => {
+    setSelectedPresetIndex(index);
+    setHoldings(JSON.parse(JSON.stringify(PRESET_PORTFOLIOS[index].holdings)));
+  };
+
+  // Input editing handlers
+  const handleUpdateHolding = (id: string, field: keyof Holding, value: string) => {
+    setHoldings(prev => prev.map(h => {
+      if (h.id === id) {
+        return { ...h, [field]: value };
+      }
+      return h;
+    }));
+  };
+
+  const handleAddHolding = () => {
+    const newItem: Holding = {
+      id: "h-" + Date.now() + Math.random().toString(36).substr(2, 4),
+      name: "נכס חדש",
+      isin: "",
+      ticker: "",
+      weight: "10%",
+      sector: "כללי",
+      assetClass: "מניות",
+      region: "גלובלי"
+    };
+    setHoldings(prev => [...prev, newItem]);
+  };
+
+  const handleRemoveHolding = (id: string) => {
+    setHoldings(prev => prev.filter(h => h.id !== id));
+  };
+
+  // Computations
+  const computedTotalWeight = holdings.reduce((sum, h) => {
+    const numeric = parseFloat(h.weight.replace("%", "").trim()) || 0;
+    return sum + numeric;
+  }, 0);
+
+  const top3Candidates = [...holdings]
+    .map(h => {
+      const parsedWeight = parseFloat(h.weight.toString().replace("%", "").trim()) || 0;
+      return { ...h, parsedWeight };
+    })
+    .filter(h => isValidISIN(h.isin))
+    .sort((a, b) => b.parsedWeight - a.parsedWeight)
+    .slice(0, 3);
+
+  // Trigger analysis
+  const handleAnalyze = async () => {
+    setLoading(true);
+    setError(null);
+    setReportData(null);
+
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ holdings })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "שגיאה בתקשורת עם השרת בזמן הניתוח.");
+      }
+
+      const data: AnalysisResponse = await response.json();
+      setReportData(data);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "אירעה שגיאה בלתי צפויה.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopyJson = () => {
+    if (!reportData) return;
+    navigator.clipboard.writeText(JSON.stringify(reportData.report, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Minimal themed bullet lists 01, 02, 03...
+  const renderBulletListMinimal = (text: string) => {
+    if (!text) return null;
+    const lines = text
+      .split(/\n+/)
+      .map(line => line.replace(/^-\s*/, "").replace(/^\*\s*/, "").replace(/^\d+[\.\-]\s*/, "").trim())
+      .filter(line => line.length > 0);
+
+    return (
+      <ul className="space-y-3.5 text-right font-sans">
+        {lines.map((line, idx) => {
+          const numStr = String(idx + 1).padStart(2, "0");
+          return (
+            <li key={idx} className="flex items-start gap-3 flex-row-reverse">
+              <span className="bg-slate-900 text-white font-bold px-2 py-0.5 text-[11px] shrink-0 font-mono rounded-sm">
+                {numStr}
+              </span>
+              <span className="text-sm text-slate-700 font-sans leading-relaxed flex-1">{line}</span>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
+
+  // Minimal themed action principles (בחינה, מעקב, בדיקה)
+  const renderActionPrinciplesMinimal = (text: string) => {
+    if (!text) return null;
+    const lines = text
+      .split(/\n+/)
+      .map(line => line.replace(/^-\s*/, "").replace(/^\*\s*/, "").replace(/^\d+[\.\-]\s*/, "").trim())
+      .filter(line => line.length > 0);
+
+    return (
+      <div className="space-y-3">
+        {lines.map((line, idx) => {
+          let type = "בקרה";
+          let badgeColor = "text-emerald-800 bg-white border border-emerald-300";
+          
+          if (line.includes("לבחון") || line.includes("בחירה")) {
+            type = "בחינה";
+            badgeColor = "text-emerald-800 bg-white border border-emerald-300 shadow-xs";
+          } else if (line.includes("למעקב") || line.includes("עקוב") || line.includes("לעקוב")) {
+            type = "מעקב";
+            badgeColor = "text-slate-800 bg-white border border-slate-300 shadow-xs";
+          } else if (line.includes("לבדוק") || line.includes("בדיקה")) {
+            type = "בדיקה";
+            badgeColor = "text-slate-800 bg-white border border-slate-300 shadow-xs";
+          } else {
+            type = "בקרה";
+            badgeColor = "text-emerald-800 bg-white border border-emerald-300 shadow-xs";
+          }
+
+          return (
+            <div key={idx} className="bg-white p-3.5 rounded-sm border border-emerald-200/80 shadow-xs text-right">
+              <div className="flex items-center justify-between mb-1.5 flex-row-reverse">
+                <span className={`text-[11px] font-black tracking-wider px-2.5 py-0.5 uppercase ${badgeColor}`}>
+                  {type}
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">AP-0{idx + 1}</span>
+              </div>
+              <p className="text-[13.5px] text-slate-800 font-sans font-medium leading-relaxed">{line}</p>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Structured rendering for dynamic Web updates
+  const renderMarketUpdatesMinimal = (text: string) => {
+    if (!text) return null;
+    const parts = text.split("\n\n").filter(p => p.trim().length > 0);
+    return (
+      <div className="space-y-5">
+        {parts.map((p, idx) => {
+          const isFirst = idx === 0;
+          const borderStyle = isFirst 
+            ? "border-r-2 border-emerald-500 pr-4 text-right" 
+            : "border-r-2 border-slate-600 pr-4 text-right";
+          
+          return (
+            <div key={idx} className={`${borderStyle} py-0.5`}>
+              <p className={`text-xs font-mono tracking-widest uppercase ${isFirst ? "text-emerald-400" : "text-slate-400"}`}>
+                COMPONENT UPDATE #{idx + 1}
+              </p>
+              <p className="text-sm text-slate-300 mt-1 font-sans leading-relaxed font-normal">{p}</p>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col p-4 sm:p-8" dir="rtl">
+      
+      {/* ----------------- APP TOP NAVIGATION BAR ----------------- */}
+      <header className="no-print flex flex-col sm:flex-row justify-between items-center border-b-2 border-slate-900 pb-4 mb-6 gap-3 flex-col-reverse">
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+          <div className="text-right">
+            <p className="text-[10px] font-extrabold tracking-widest text-slate-500 uppercase mb-0.5">סקירה ניהולית | FINEXECUTIVESUM</p>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">סוכן ניתוח ודוחות תיקי השקעות</h1>
+          </div>
+          <div className="w-10 h-10 bg-slate-900 text-white flex items-center justify-center font-black rounded-sm shadow-sm select-none">
+            FX
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between sm:justify-start w-full sm:w-auto gap-4">
+          <div className="text-left">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">סטטוס סוכן</div>
+            <div className="text-md sm:text-lg font-mono font-bold text-emerald-600 uppercase">פעיל ומקוון (UTC)</div>
+          </div>
+          <div className="text-right text-xs font-mono text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-sm">
+            2026-06-08 15:58
+          </div>
+        </div>
+      </header>
+
+      {/* ----------------- SCREEN 1: INPUT CONTROLS ----------------- */}
+      {!reportData && !loading && (
+        <div className="no-print space-y-6 flex-grow">
+          
+          {/* Introductory Hero Area */}
+          <div className="bg-white border border-slate-200 p-6 shadow-xs rounded-sm text-right relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
+            <h2 className="text-sm font-black uppercase tracking-tighter text-slate-400 mb-2 border-r-4 border-slate-900 pr-3">
+              מבוא והנחיות שימוש
+            </h2>
+            <div className="max-w-4xl text-slate-700 leading-relaxed text-[14.5px] space-y-3">
+              <p>
+                ברוכים הבאים ל-<strong>FinExecutiveSum</strong>. כלי מחקר פיננסי מתקדם המציג תהליך סימולציה מלא של סורק רשת למציאת נתונים רשמיים, חדשות, ועדכונים עסקיים ברשת אודות ניירות הערך הדומיננטיים בתיק ההשקעות של לקוחותיכם.
+              </p>
+              <p className="text-slate-500 text-xs font-mono border-t border-slate-100 pt-2 flex items-center gap-1.5 flex-row-reverse">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                מנוע הסריקה ימיין ורוצה את ה-ISIN המובילים באנליזה כדי לספק סירוס מקורות מאומתים מתוך Bloomberg, Reuters, Globes ועוד.
+              </p>
+            </div>
+          </div>
+
+          {/* Preset Portfolios Grid */}
+          <div className="bg-white border border-slate-200 p-6 shadow-sm rounded-sm text-right">
+            <h2 className="text-sm font-black uppercase tracking-tighter text-slate-400 mb-4 border-r-4 border-slate-300 pr-3">
+              טעינת תיק השקעות מוגדר מראש
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {PRESET_PORTFOLIOS.map((preset, idx) => {
+                const isSelected = selectedPresetIndex === idx;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleLoadPreset(idx)}
+                    className={`text-right p-4 rounded-sm border transition-all cursor-pointer ${
+                      isSelected 
+                        ? "bg-slate-50 border-slate-900 ring-1 ring-slate-900 shadow-xs" 
+                        : "bg-white hover:bg-slate-50/50 border-slate-200"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1 flex-row-reverse mb-1">
+                      <span className="text-sm font-bold text-slate-900">
+                        {preset.name}
+                      </span>
+                      <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${isSelected ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white"}`}>
+                        {isSelected && <div className="w-1 h-1 rounded-full bg-white" />}
+                      </div>
+                    </div>
+                    <p className="text-slate-500 text-[12px] leading-relaxed font-sans">{preset.description}</p>
+                    <div className="mt-2.5 flex justify-end gap-1.5 flex-wrap">
+                      <span className="text-[10px] px-2 py-0.5 rounded-xs bg-slate-100 text-slate-700 font-mono font-bold border border-slate-200">
+                        {preset.holdings.length} ASSETS
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-xs bg-emerald-50 text-emerald-800 font-mono font-bold border border-emerald-200">
+                        ISIN VALID
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Holdings Spreadsheet / Accounting Ledger */}
+          <div className="bg-white border border-slate-200 shadow-sm rounded-sm overflow-hidden text-right">
+            
+            <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 flex-col-reverse">
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                
+                <span className={`inline-flex items-center gap-1 px-3 py-1 bg-white border font-mono text-xs font-bold ${
+                  Math.abs(computedTotalWeight - 100) < 0.1 
+                    ? "border-emerald-300 text-emerald-800" 
+                    : "border-amber-300 text-amber-800"
+                }`}>
+                  SUM: {computedTotalWeight.toFixed(1)}%
+                </span>
+
+                <button
+                  onClick={handleAddHolding}
+                  className="inline-flex items-center gap-1 bg-slate-900 text-white px-3 py-1 text-xs font-bold hover:bg-slate-800 cursor-pointer rounded-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  הוסף שורת השקעה
+                </button>
+
+              </div>
+
+              <div className="flex items-center gap-2 justify-end">
+                <h3 className="font-sans font-bold text-slate-800 text-[15px] border-r-4 border-slate-900 pr-3">גיליון פירוט האחזקות ומשקלים</h3>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-right font-sans">
+                <thead className="text-[11px] text-slate-500 uppercase tracking-wider bg-slate-50 border-b border-slate-200 font-mono">
+                  <tr>
+                    <th scope="col" className="px-4 py-3 text-center w-12 border-l border-slate-150">פעולה</th>
+                    <th scope="col" className="px-3 py-3 text-center w-24 border-l border-slate-150">גיאוגרפיה</th>
+                    <th scope="col" className="px-3 py-3 text-center w-28 border-l border-slate-150">סקטור קונסול</th>
+                    <th scope="col" className="px-3 py-3 text-center w-24 border-l border-slate-150">סוג נכס</th>
+                    <th scope="col" className="px-4 py-3 text-center w-20 border-l border-slate-150">משקל %</th>
+                    <th scope="col" className="px-4 py-3 text-center w-40 border-l border-slate-150">קוד ני"ע ISIN</th>
+                    <th scope="col" className="px-3 py-3 text-center w-24 border-l border-slate-150">סימול</th>
+                    <th scope="col" className="px-4 py-3 pr-6">שם תאגיד פיננסי / נכס המטרה</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {holdings.map((holding) => {
+                    const isIsinOk = isValidISIN(holding.isin);
+                    const isTop3 = top3Candidates.some(c => c.id === holding.id);
+
+                    return (
+                      <tr key={holding.id} className="hover:bg-slate-50/50 transition-colors">
+                        
+                        <td className="px-3 py-2 text-center border-l border-slate-150">
+                          <button
+                            onClick={() => handleRemoveHolding(holding.id)}
+                            className="p-1 px-1.5 text-rose-600 hover:bg-rose-50 rounded-xs transition-all cursor-pointer"
+                            title="מחק שורה"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+
+                        <td className="px-3 py-2 border-l border-slate-150">
+                          <input
+                            type="text"
+                            value={holding.region || ""}
+                            onChange={(e) => handleUpdateHolding(holding.id, "region", e.target.value)}
+                            className="w-full bg-slate-50 focus:bg-white text-center border border-slate-200 focus:border-slate-900 rounded-2xs px-2 py-1 text-xs outline-none"
+                            placeholder="איזור גלובלי"
+                          />
+                        </td>
+
+                        <td className="px-3 py-2 border-l border-slate-150">
+                          <input
+                            type="text"
+                            value={holding.sector || ""}
+                            onChange={(e) => handleUpdateHolding(holding.id, "sector", e.target.value)}
+                            className="w-full bg-slate-50 focus:bg-white text-center border border-slate-200 focus:border-slate-900 rounded-2xs px-2 py-1 text-xs outline-none"
+                            placeholder="מגזר טכנולוגי"
+                          />
+                        </td>
+
+                        <td className="px-3 py-2 border-l border-slate-150">
+                          <select
+                            value={holding.assetClass || "מניות"}
+                            onChange={(e) => handleUpdateHolding(holding.id, "assetClass", e.target.value)}
+                            className="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-900 rounded-2xs px-1.5 py-1 text-xs outline-none"
+                          >
+                            <option value="מניות">מניות</option>
+                            <option value="אג'ח">אג"ח</option>
+                            <option value="קרנות">קרנות</option>
+                            <option value="מזומנים">מזומנים</option>
+                            <option value="אחר">אחר</option>
+                          </select>
+                        </td>
+
+                        <td className="px-3 py-2 border-l border-slate-150">
+                          <input
+                            type="text"
+                            value={holding.weight}
+                            onChange={(e) => handleUpdateHolding(holding.id, "weight", e.target.value)}
+                            className="w-full bg-slate-50 focus:bg-white text-center font-bold border border-slate-200 focus:border-slate-900 rounded-2xs px-2 py-1 text-xs outline-none font-mono"
+                            placeholder="10%"
+                          />
+                        </td>
+
+                        <td className="px-3 py-2 border-l border-slate-150">
+                          <div className="space-y-1">
+                            <input
+                              type="text"
+                              value={holding.isin}
+                              onChange={(e) => handleUpdateHolding(holding.id, "isin", e.target.value)}
+                              className={`w-full bg-slate-50 focus:bg-white text-center font-mono border rounded-2xs px-2 py-1 text-xs outline-none ${
+                                holding.isin 
+                                  ? isIsinOk 
+                                    ? "border-emerald-300 text-slate-800" 
+                                    : "border-amber-300 text-amber-700"
+                                  : "border-slate-200 text-slate-400"
+                              }`}
+                              placeholder="ISIN 12 תווים"
+                            />
+                            {holding.isin && (
+                              <div className="text-center">
+                                {isIsinOk ? (
+                                  <span className={`inline-flex px-1.5 py-0.5 rounded-sm text-[9px] font-bold ${isTop3 ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-slate-100 text-slate-600"}`}>
+                                    {isTop3 ? "סורק שוק פעיל (TOP 3)" : "מזהה תקין"}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex px-1.5 py-0.5 rounded-sm text-[9px] bg-rose-50 text-rose-800 border border-rose-200">לא תקני</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="px-3 py-2 border-l border-slate-150">
+                          <input
+                            type="text"
+                            value={holding.ticker}
+                            onChange={(e) => handleUpdateHolding(holding.id, "ticker", e.target.value.toUpperCase())}
+                            className="w-full bg-slate-50 focus:bg-white text-center font-mono font-semibold border border-slate-200 focus:border-slate-900 rounded-2xs px-2 py-1 text-xs outline-none"
+                            placeholder="NVDA"
+                          />
+                        </td>
+
+                        <td className="px-4 py-2 pr-6">
+                          <input
+                            type="text"
+                            value={holding.name}
+                            onChange={(e) => handleUpdateHolding(holding.id, "name", e.target.value)}
+                            className="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-900 rounded-2xs px-3 py-1 font-bold text-xs text-slate-800 outline-none"
+                            placeholder="שם הנכס"
+                          />
+                        </td>
+
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Accounting lower drawer */}
+            <div className="bg-slate-50 p-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 font-medium flex-col-reverse gap-3">
+              <p className="text-right leading-relaxed max-w-2xl text-slate-500">
+                הסוכן סורק ומנתח את 3 הנכסים השקילים ביותר בעלי ISIN תקני. קשרי הגומלין והחדשות ישתלבו אוטומטית בדוח המנהלים הסופי.
+              </p>
+              <div className="bg-white px-3.5 py-1.5 rounded-xs border border-slate-200 text-slate-700 font-mono text-xs">
+                מצב סנכרון: <strong>{top3Candidates.length} IN SCAN</strong>
+              </div>
+            </div>
+
+          </div>
+
+          {/* CRITICAL FAILURE BLOCK */}
+          {error && (
+            <div className="bg-rose-50 border-r-4 border-rose-600 rounded-sm p-4 text-right flex items-start gap-3 flex-row-reverse shadow-xs">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-bold text-rose-950 leading-none mb-1">כישלון ביצירת דוח הניתוח</h4>
+                <p className="text-rose-800 text-xs font-sans leading-relaxed">{error}</p>
+              </div>
+            </div>
+          )}
+
+          {/* TRIGGER CONTROL BUTTON */}
+          <div className="flex justify-center pt-2 pb-6">
+            <button
+              onClick={handleAnalyze}
+              disabled={holdings.length === 0}
+              className="group relative inline-flex items-center gap-3 bg-slate-900 hover:bg-slate-800 text-white font-sans text-base font-bold px-8 py-3.5 rounded-sm shadow-md cursor-pointer transition-all disabled:opacity-50 border border-slate-950 uppercase tracking-wide text-sm"
+            >
+              <span>הפק דו"ח מנהלים מבוסס סריקת שוק</span>
+              <Sparkles className="w-4 h-4 text-emerald-400" />
+            </button>
+          </div>
+
+        </div>
+      )}
+
+      {/* ----------------- SCREEN 2: DUSTY SANDBOX CRAWLING OVERLAY ----------------- */}
+      {loading && (
+        <div className="no-print max-w-2xl mx-auto py-12 text-center text-slate-900 font-sans space-y-8 flex-grow">
+          
+          <div className="flex flex-col items-center justify-center space-y-3">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-none border-4 border-slate-250 border-t-slate-900 animate-spin" />
+              <div className="absolute top-4 left-4 text-slate-900">
+                <Layers className="w-8 h-8 opacity-75" />
+              </div>
+            </div>
+            <h2 className="text-lg font-black tracking-tight uppercase pt-3 text-slate-900">מריץ ניתוח מורחב ומנועי חיפוש ברשת...</h2>
+            <p className="text-slate-500 text-xs w-96 mx-auto">
+              סורק כותרות ושינויים שוטפים ברבעון האחרון עבור ניירות הערך הדומיננטיים.
+            </p>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-sm p-5 shadow-xs text-right space-y-3.5">
+            {loadingSteps.map((step, idx) => {
+              const isCompleted = loadingStep > idx;
+              const isActive = loadingStep === idx;
+
+              return (
+                <div 
+                  key={idx} 
+                  className={`flex items-start gap-4 p-3 rounded-sm transition-all flex-row-reverse border ${
+                    isActive 
+                      ? "bg-slate-50 border-slate-900 scale-[1.002]" 
+                      : "bg-white border-transparent"
+                  } ${isCompleted ? "opacity-60" : "opacity-40"}`}
+                >
+                  <div className="shrink-0 mt-0.5">
+                    {isCompleted ? (
+                      <CheckCircle className="w-4.5 h-4.5 text-emerald-600" />
+                    ) : isActive ? (
+                      <Loader2 className="w-4.5 h-4.5 text-slate-800 animate-spin" />
+                    ) : (
+                      <div className="w-4 h-4 rounded-none border-2 border-slate-350" />
+                    )}
+                  </div>
+
+                  <div className="flex-1">
+                    <p className={`text-xs font-bold leading-none mb-1 ${isActive ? "text-slate-900" : "text-slate-800"}`}>
+                      {step.title}
+                    </p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">{step.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="text-[10px] text-slate-400 font-mono tracking-widest uppercase">
+            REPORT SECTOR SIMULATOR | FX-GROUNDING
+          </div>
+
+        </div>
+      )}
+
+      {/* ----------------- SCREEN 3: REPORT SECTOR (SWISS/MINIMAL GRID) ----------------- */}
+      {reportData && !loading && (
+        <div className="space-y-6 flex-grow animate-fade-in text-right">
+          
+          {/* Action and Formatting Toolbar */}
+          <div className="no-print bg-white rounded-sm border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-col-reverse shadow-xs">
+            
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setRawView(!rawView)}
+                className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 text-slate-800 px-3.5 py-1.5 rounded-xs text-xs font-bold border border-slate-300 transition-all cursor-pointer"
+                title="צפה בפורמט ה-JSON המקורי"
+              >
+                <Code className="w-3.5 h-3.5" />
+                {rawView ? "הצג דוח מעוצב" : "הצג קוד JSON מובנה"}
+              </button>
+
+              <button
+                onClick={handleCopyJson}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xs text-xs font-bold border transition-all cursor-pointer ${
+                  copied 
+                    ? "bg-slate-100 border-slate-900 text-slate-900 shadow-xs" 
+                    : "bg-white hover:bg-slate-100 border-slate-300 text-slate-800"
+                }`}
+              >
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                {copied ? "הועתק ללוח!" : "העתק JSON מלא"}
+              </button>
+
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-4 py-1.5 rounded-xs text-xs font-bold transition-all cursor-pointer shadow-xs"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                הדפס דוח (PDF)
+              </button>
+            </div>
+
+            <div className="flex items-center">
+              <button
+                onClick={() => setReportData(null)}
+                className="flex items-center gap-1 bg-white text-slate-800 border border-slate-900 px-3.5 py-1.5 rounded-xs text-xs font-bold hover:bg-slate-50 cursor-pointer"
+              >
+                <ChevronRight className="w-4 h-4 ml-0.5" />
+                עריכת נתוני תיק חדש
+              </button>
+            </div>
+
+          </div>
+
+          {/* Core view toggler */}
+          {rawView ? (
+            <div className="no-print bg-slate-900 text-slate-100 rounded-sm border border-slate-950 overflow-hidden text-right">
+              <div className="bg-slate-950 px-5 py-3 border-b border-slate-800 flex items-center justify-between flex-row-reverse font-sans">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-700" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-600" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-500" />
+                </div>
+                <div className="text-xs font-mono font-bold tracking-widest text-emerald-400 uppercase">
+                  RAW 11 NARRATIVE KEYS JSON EXPORT
+                </div>
+              </div>
+              <div className="p-5 font-mono text-xs overflow-auto max-h-[600px] text-left dir-ltr bg-slate-900/90 whitespace-pre-wrap leading-relaxed select-all">
+                {JSON.stringify(reportData.report, null, 2)}
+              </div>
+            </div>
+          ) : (
+            
+            /* SWISS INSPIRED BEAUTIFUL UTILITY DOSSIER */
+            <div className="bg-white rounded-none border-2 border-slate-900 overflow-hidden p-6 sm:p-8 space-y-6 text-right print:p-0 print:border-none print-card">
+              
+              {/* Report Header block EXACTLY matching design theme */}
+              <header className="flex flex-col sm:flex-row justify-between items-end border-b-2 border-slate-900 pb-5 mb-8 text-right gap-4">
+                <div className="flex-1 w-full">
+                  <p className="text-xs font-bold tracking-widest text-slate-500 uppercase mb-1">
+                    {reportData.report.portfolio_label} | FINEXECUTIVESUM
+                  </p>
+                  <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 font-sans">
+                    {reportData.report.report_title}
+                  </h1>
+                  <p className="text-base text-slate-600 mt-1 italic">
+                    {reportData.report.report_subtitle}
+                  </p>
+                </div>
+                <div className="text-left border-r-2 md:border-r-0 md:border-l-2 border-slate-200 pr-4 md:pr-0 md:pl-6 shrink-0 w-full sm:w-auto text-right sm:text-left">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">סטטוס דיווח</div>
+                  <div className="text-xl sm:text-2xl font-mono font-black text-emerald-600 uppercase">מבוקר ומאושר</div>
+                </div>
+              </header>
+
+              {/* Grid 12 Columns Layout */}
+              <div className="grid grid-cols-12 gap-8">
+                
+                {/* Right / Left Side Columns depending on rtl reading direction.
+                    In standard CSS, col-span-8 and col-span-4 map layout arrangement. */}
+                <div className="col-span-12 lg:col-span-8 flex flex-col gap-6">
+                  
+                  {/* Executive Summary Card with bold black header border */}
+                  <div className="bg-white border border-slate-200 p-6 shadow-xs rounded-sm text-right">
+                    <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3.5 border-r-4 border-slate-900 pr-3">
+                      סיכום מנהלים
+                    </h2>
+                    <div className="text-slate-700 leading-relaxed text-sm sm:text-base space-y-3 font-sans">
+                      {reportData.report.executive_summary.split("\n\n").map((para, idx) => (
+                        <p key={idx} className={idx === 0 ? "italic text-slate-800 font-medium" : "text-slate-700"}>
+                          {para}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Dark block: Market Updates (Grounding summaries) */}
+                  <div className="bg-slate-900 text-white p-6 rounded-sm flex-grow text-right relative overflow-hidden shadow-xs">
+                    <h2 className="text-xs font-black uppercase tracking-widest text-emerald-400 mb-4 flex items-center gap-2 flex-row-reverse justify-end">
+                      <span className="w-2 h-2 bg-emerald-500 rounded-full shrink-0"></span>
+                      <span>עדכוני שוק - אחזקות מובילות (GOOGLE GROUNDING)</span>
+                    </h2>
+                    
+                    {renderMarketUpdatesMinimal(reportData.report.field_updates_summary)}
+
+                    {/* Grounding references link boxes */}
+                    {reportData.searchedHoldings && reportData.searchedHoldings.length > 0 && (
+                      <div className="mt-6 pt-5 border-t border-slate-800">
+                        <p className="text-[11px] font-mono text-slate-500 text-right mb-2.5 uppercase tracking-widest">מקורות ומזהים פיננסיים שנסרקו:</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {reportData.searchedHoldings.map((sh, idx) => (
+                            <div key={idx} className="bg-slate-950 border border-slate-800 rounded-sm p-3 text-right">
+                              <p className="text-xs font-bold text-slate-200 truncate">{sh.name}</p>
+                              <p className="text-[10px] font-mono text-slate-500 leading-none mt-1 tracking-tight">{sh.isin}</p>
+                              <div className="mt-2 flex items-center justify-between text-[11px] flex-row-reverse leading-none">
+                                <span className="text-emerald-400 font-mono font-bold">{sh.sourcesCount} CRAWLS</span>
+                                <span className="text-slate-600 font-mono text-[9px] uppercase">GROUNDED</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
+                {/* Right / Left Side Sidebar (col-span-4) */}
+                <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
+                  
+                  {/* Key Findings Card (01, 02, 03 utility lists) */}
+                  <div className="bg-white border border-slate-200 p-5 shadow-xs rounded-sm text-right">
+                    <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 border-r-4 border-slate-900 pr-3">
+                      ממצאים עיקריים
+                    </h2>
+                    {renderBulletListMinimal(reportData.report.key_findings)}
+                  </div>
+
+                  {/* Allocation Detailed Overview List */}
+                  <div className="bg-white border border-slate-200 p-5 shadow-xs rounded-sm text-right">
+                    <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3 border-r-4 border-slate-900 pr-3">
+                      פילוח והקצאת נכסים
+                    </h2>
+                    <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap mb-4">
+                      {reportData.report.allocation_summary}
+                    </p>
+                    
+                    {/* Embedded micro spreadsheet of weights mapping */}
+                    <div className="bg-slate-50 border border-slate-150 rounded-sm overflow-hidden text-right">
+                      <table className="w-full text-xs text-right font-sans">
+                        <thead className="bg-slate-100 text-[10px] text-slate-500 border-b border-slate-200 font-mono">
+                          <tr>
+                            <th scope="col" className="px-2.5 py-1.5 text-center">משקל</th>
+                            <th scope="col" className="px-2.5 py-1.5 pr-3">נכס</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-150 text-slate-700">
+                          {holdings.map((h, i) => (
+                            <tr key={i} className="hover:bg-slate-50/50">
+                              <td className="px-2.5 py-1 text-center font-bold font-mono text-slate-900">{h.weight}</td>
+                              <td className="px-2.5 py-1 pr-3 font-semibold text-slate-800 text-[11px] truncate max-w-[120px]">{h.name}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Action Principles Card - The Emerald custom tag dashboard */}
+                  <div className="bg-emerald-50 border border-emerald-100 p-5 flex-grow rounded-sm text-right">
+                    <h2 className="text-xs font-black uppercase tracking-widest text-emerald-800 mb-4 border-r-4 border-emerald-700 pr-3">
+                      נקודות לבחינה ובקרה
+                    </h2>
+                    {renderActionPrinciplesMinimal(reportData.report.action_principles)}
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* Subordinate Findings: Tickers monitoring */}
+              <div className="bg-white border border-slate-200 p-5 rounded-sm shadow-xs text-right mt-6">
+                <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3 border-r-4 border-slate-900 pr-3">
+                  ניתוח אחזקות מובילות ופרמטרים למעקב
+                </h2>
+                <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">
+                  {reportData.report.top_holdings_analysis}
+                </p>
+              </div>
+
+              {/* Regulatory Compliance Footer section EXACTLY like design */}
+              <footer className="mt-8 pt-4 border-t border-slate-200 text-right">
+                <div className="flex flex-col sm:flex-row justify-between items-center text-[10.5px] text-slate-400 leading-relaxed gap-6 flex-col-reverse">
+                  <p className="max-w-4xl text-slate-400">
+                    {reportData.report.compliance_note}
+                  </p>
+                  <div className="text-left font-mono whitespace-nowrap uppercase text-[10px] tracking-widest bg-slate-50 border border-slate-150 px-2.5 py-1 text-slate-500 rounded-sm">
+                    מזהה דוח: FX-30-2026-V30
+                  </div>
+                </div>
+              </footer>
+
+            </div>
+          )}
+
+          {/* Quick Return Actions */}
+          <div className="no-print flex justify-center pb-8 gap-4 pt-2">
+            <button
+              onClick={() => setReportData(null)}
+              className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-sans text-xs font-black px-5 py-2 rounded-sm shadow-xs cursor-pointer uppercase transition-all border border-slate-950"
+            >
+              <ChevronRight className="w-4 h-4 ml-0.5" />
+              עריכת נתונים חוזרת
+            </button>
+            
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-sans text-xs font-black px-5 py-2 rounded-sm shadow-xs cursor-pointer uppercase transition-all border border-emerald-700"
+            >
+              <Printer className="w-4 h-4 text-emerald-200" />
+              הדפס דוח השקעות מבוקר
+            </button>
+          </div>
+
+        </div>
+      )}
+
+    </div>
+  );
+}

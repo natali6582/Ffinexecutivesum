@@ -1,0 +1,6 @@
+{
+  "name": "FinExecutiveSum",
+  "description": "סוכן ליצירת דוח ניתוח תיק השקעות בעברית. מקבל נתוני אחזקות, מבצע חיפוש עדכונים חיצוניים עבור האחזקות המובילות, ומחזיר דוח JSON מובנה עם 11 שדות קבועים הכוללים סיכום מנהלים, ממצאים עיקריים, עדכוני שוק ונקודות בקרה.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
