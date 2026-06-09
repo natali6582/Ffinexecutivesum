@@ -8,193 +8,203 @@ export interface PresetPortfolio {
 
 export const PRESET_PORTFOLIOS: PresetPortfolio[] = [
   {
-    name: "תיק אלטשולר שחם, שקליות ומדדים (דוח אחזקות נוכחי)",
-    description: "תיק מגוון עם חשיפה רחבה לקרנות נאמנות של אלטשולר שחם (שווקים מפותחים, אג\"ח חברות, סופה) בשילוב אגרות חוב ממשלתיות ישראל ומדדים גלובליים (מדד הניקיי, נאסד\"ק 100, S&P 500).",
+    name: "תיק 4 (דוח נוכחי - קסם KTF ותכלית TTF)",
+    description: "תיק השקעות חדש ומבוזר הכולל ריכוז ראשון של אג\"ח ממשלתיות וקונצרניות בישראל (קסם KTF, תכלית TTF) לצד קרנות סל מניות מובילות (S&P 500, נאסד\"ק 100).",
     holdings: [
       {
-        id: "usr6-1",
-        name: "אלטש שווק מפותח",
-        isin: "IL0051186091",
-        ticker: "5118609",
-        weight: "13.15%",
-        sector: "מניות מפותחות",
-        assetClass: "מניות",
-        region: "גלובלי"
-      },
-      {
-        id: "usr6-2",
-        name: "אלטשולר שחם (!) אגח חברות ללא",
-        isin: "IL0051056971",
-        ticker: "5105697",
-        weight: "13.02%",
-        sector: "אג\"ח קונצרניות",
+        id: "usr4-1",
+        name: "קסם KTF תל גוב- שקלי",
+        isin: "IL0051180474",
+        ticker: "5118047",
+        weight: "14.97%",
+        sector: "אג\"ח ממשלתיות",
         assetClass: "אג'ח",
         region: "ישראל"
       },
       {
-        id: "usr6-3",
-        name: "אלטשולר שחם (!) אגח ארהב/חול ק",
-        isin: "IL0051185911",
-        ticker: "5118591",
-        weight: "9.93%",
-        sector: "אג\"ח חו\"ל",
-        assetClass: "אג'ח",
-        region: "גלובלי"
-      },
-      {
-        id: "usr6-4",
-        name: "אלטשולר שחם (!) אגח גלובלי ללא",
-        isin: "IL0051059116",
-        ticker: "5105911",
-        weight: "6.84%",
-        sector: "אג\"ח חו\"ל",
-        assetClass: "אג'ח",
-        region: "גלובלי"
-      },
-      {
-        id: "usr6-5",
-        name: "אלטשולר שחם אגח תל בונד",
-        isin: "IL0051100852",
-        ticker: "5110085",
-        weight: "5.99%",
+        id: "usr4-2",
+        name: "תכלית TTF צמוד A ומעלה מרווח אג\"ח ממשלתי",
+        isin: "IL0051333768",
+        ticker: "5133376",
+        weight: "13.18%",
         sector: "מדדי אג\"ח",
         assetClass: "אג'ח",
         region: "ישראל"
       },
       {
-        id: "usr6-6",
-        name: "1025 צמודה ממשלתי",
-        isin: "IL0011359127",
-        ticker: "1135912",
-        weight: "5.63%",
+        id: "usr4-3",
+        name: "קסםKTF תל גוב-צמודות 5-10",
+        isin: "IL0051180540",
+        ticker: "5118054",
+        weight: "12.95%",
         sector: "אג\"ח ממשלתיות",
         assetClass: "אג'ח",
         region: "ישראל"
       },
       {
-        id: "usr6-7",
-        name: "גלובלי מניות (4B) שחם אלטשולר",
-        isin: "IL0051083298",
-        ticker: "5108329",
-        weight: "4.20%",
-        sector: "מניות גלובלי",
-        assetClass: "מניות",
-        region: "גלובלי"
-      },
-      {
-        id: "usr6-8",
-        name: "ממשלתי צמוד 0527",
-        isin: "IL0011408478",
-        ticker: "1140847",
-        weight: "3.82%",
-        sector: "אג\"ח ממשלתיות",
-        assetClass: "אג'ח",
-        region: "ישראל"
-      },
-      {
-        id: "usr6-9",
-        name: "אלטשולר שחם סופה מניות",
-        isin: "IL0051267016",
-        ticker: "5126701",
-        weight: "3.73%",
-        sector: "מניות ישראל",
+        id: "usr4-4",
+        name: "תכלית TTF ת\"א 35",
+        isin: "IL0051094188",
+        ticker: "5109418",
+        weight: "8.97%",
+        sector: "מניות מדדים",
         assetClass: "מניות",
         region: "ישראל"
       },
       {
-        id: "usr6-10",
-        name: "אלטשולר שחם (!) אגח חול עד 10%",
-        isin: "IL0051077845",
-        ticker: "5107784",
-        weight: "3.53%",
-        sector: "אג\"ח חו\"ל",
-        assetClass: "אג'ח",
-        region: "גלובלי"
-      },
-      {
-        id: "usr6-11",
-        name: "04/25 0.5% שקלית ממשלתית",
-        isin: "IL0011626681",
-        ticker: "1162668",
-        weight: "3.39%",
-        sector: "אג\"ח ממשלתיות",
+        id: "usr4-5",
+        name: "תכלית TTF אינדקס ישראל שקלי A ומעלה פקטור מרווח",
+        isin: "IL0051343908",
+        ticker: "5134390",
+        weight: "6.97%",
+        sector: "מדדי אג\"ח",
         assetClass: "אג'ח",
         region: "ישראל"
       },
       {
-        id: "usr6-12",
-        name: "קסם NASDAQ 100 KTF",
-        isin: "IL0051289051",
-        ticker: "5128905",
-        weight: "3.07%",
-        sector: "טכנולוגיה ומדדים",
-        assetClass: "מניות",
-        region: "ארה\"ב"
-      },
-      {
-        id: "usr6-13",
-        name: "מז טפ הנפק 46",
-        isin: "IL0023102259",
-        ticker: "2310225",
-        weight: "2.79%",
-        sector: "פיננסים ובנקים",
-        assetClass: "אג'ח",
-        region: "ישראל"
-      },
-      {
-        id: "usr6-14",
-        name: "פועלים הנפקות אגח 36",
-        isin: "None",
-        ticker: "1940659",
-        weight: "2.40%",
-        sector: "פיננסים ובנקים",
-        assetClass: "אג'ח",
-        region: "ישראל"
-      },
-      {
-        id: "usr6-15",
-        name: "אלטשולר שחם (!) אגח הזדמנויות",
-        isin: "IL0051086424",
-        ticker: "5108642",
-        weight: "2.32%",
-        sector: "אג\"ח קונצרניות",
-        assetClass: "אג'ח",
-        region: "ישראל"
-      },
-      {
-        id: "usr6-16",
-        name: "קסם S&P 500 KTF מנוטרלת מט\"ח",
-        isin: "IL0051229578",
-        ticker: "5122957",
-        weight: "2.10%",
+        id: "usr4-6",
+        name: "מור מחקה S&P 500 מנוטרלת מט\"ח",
+        isin: "IL0051230212",
+        ticker: "5123021",
+        weight: "6.51%",
         sector: "מניות מדדים חול",
         assetClass: "מניות",
         region: "גלובלי"
       },
       {
-        id: "usr6-17",
-        name: "יתר (40) שחם אלטשולר",
-        isin: "IL0051059033",
-        ticker: "5105903",
-        weight: "2.00%",
-        sector: "מניות ישראל",
+        id: "usr4-7",
+        name: "תכלית NASDAQ 100 TTF מנוטרלת מטח",
+        isin: "IL0051231798",
+        ticker: "5123179",
+        weight: "4.08%",
+        sector: "טכנולוגיה ומדדים",
+        assetClass: "מניות",
+        region: "גלובלי"
+      },
+      {
+        id: "usr4-8",
+        name: "תכלית TTF ת\"א 90",
+        isin: "IL0051187404",
+        ticker: "5118740",
+        weight: "4.05%",
+        sector: "מניות מדדים",
         assetClass: "מניות",
         region: "ישראל"
       },
       {
-        id: "usr6-18",
-        name: "קסם ETF KOSPI 200",
-        isin: "IL0011457541",
-        ticker: "1145754",
-        weight: "1.74%",
-        sector: "מניות אסיה",
+        id: "usr4-9",
+        name: "קסם iBoxx US Liquid Investment Grade Top 30 KTF",
+        isin: "IL0051181795",
+        ticker: "5118179",
+        weight: "4.05%",
+        sector: "אג\"ח חו\"ל",
+        assetClass: "אג'ח",
+        region: "גלובלי"
+      },
+      {
+        id: "usr4-10",
+        name: "אי.בי.אי מחקה MSCI EM",
+        isin: "IL0051193188",
+        ticker: "5119318",
+        weight: "3.55%",
+        sector: "שווקים מתפתחים",
         assetClass: "מניות",
         region: "גלובלי"
+      },
+      {
+        id: "usr4-11",
+        name: "תכלית S&P 500 TTF",
+        isin: "IL0051139983",
+        ticker: "5113998",
+        weight: "2.79%",
+        sector: "מניות מדדים חול",
+        assetClass: "מניות",
+        region: "גלובלי"
+      },
+      {
+        id: "usr4-12",
+        name: "MTF מחקה STOXX Europe 600",
+        isin: "IL0051218431",
+        ticker: "5121843",
+        weight: "2.67%",
+        sector: "מניות אירופה",
+        assetClass: "מניות",
+        region: "גלובלי"
+      },
+      {
+        id: "usr4-13",
+        name: "מגדל כספית",
+        isin: "IL0051343098",
+        ticker: "5134309",
+        weight: "2.53%",
+        sector: "כספיות",
+        assetClass: "מזומנים",
+        region: "ישראל"
+      },
+      {
+        id: "usr4-14",
+        name: "Shiller Barclays CAPE® US Core Mid-Month Sector",
+        isin: "IL0051307374",
+        ticker: "5130737",
+        weight: "2.52%",
+        sector: "מניות מדדים חול",
+        assetClass: "מניות",
+        region: "גלובלי"
+      },
+      {
+        id: "usr4-15",
+        name: "ISHARES $ HIGH YIELD CORP BOND UCITS ETF",
+        isin: "IE00BYXYYL56",
+        ticker: "1159078",
+        weight: "2.49%",
+        sector: "אג\"ח חו\"ל",
+        assetClass: "אג'ח",
+        region: "גלובלי"
+      },
+      {
+        id: "usr4-16",
+        name: "ילין לפידות מחקה ת\"א בנקים",
+        isin: "IL0051373020",
+        ticker: "5137302",
+        weight: "2.41%",
+        sector: "פיננסים ובנקים",
+        assetClass: "מניות",
+        region: "ישראל"
+      },
+      {
+        id: "usr4-17",
+        name: "MTF מחקה (!) אינדקס HY-BBB כללי",
+        isin: "IL0051233513",
+        ticker: "5123351",
+        weight: "1.88%",
+        sector: "אג\"ח קונצרניות",
+        assetClass: "אג'ח",
+        region: "ישראל"
+      },
+      {
+        id: "usr4-18",
+        name: "הראל סל Nikkei 225 מנוטרלת מט\"ח",
+        isin: "IL0011492514",
+        ticker: "1149251",
+        weight: "1.40%",
+        sector: "מניות יפן",
+        assetClass: "מניות",
+        region: "גלובלי"
+      },
+      {
+        id: "usr4-19",
+        name: "MTF מחקה ת\"א צמיחה",
+        isin: "IL0051236417",
+        ticker: "5123641",
+        weight: "1.36%",
+        sector: "מניות ישראל",
+        assetClass: "מניות",
+        region: "ישראל"
       }
     ]
   },
   {
-    name: "תיק אג\"ח, נדל\"ן ותשתיות ישראל (דוח אחזקות קודם)",
+    name: "תיק 5 (דוח קודם - אג\"ח, נדל\"ן ותשתיות ישראל)",
     description: "תיק השקעות דפנסיבי המורכב ברובו מאגרות חוב ממשלתיות ישראל ומגוון רחב של אג\"ח קונצרניות מענפי הנדל\"ן, הריט, התשתיות והבנקאות (ג'נריישן, סלע, מליסרון, לאומי, שפיר) לצד חשיפה מנייתית מבוזרת (XLK, מזרחי).",
     holdings: [
       {
@@ -410,203 +420,193 @@ export const PRESET_PORTFOLIOS: PresetPortfolio[] = [
     ]
   },
   {
-    name: "תיק מנותח נוכחי (לפי דוח אחזקות אחרון)",
-    description: "תיק השקעות חדש ומבוזר הכולל ריכוז ראשון של אג\"ח ממשלתיות וקונצרניות בישראל (קסם KTF, תכלית TTF) לצד קרנות סל מניות מובילות (S&P 500, נאסד\"ק 100).",
+    name: "תיק 6 (דוח נוכחי - אלטשולר שחם, שקליות ומדדים)",
+    description: "תיק מגוון עם חשיפה רחבה לקרנות נאמנות של אלטשולר שחם (שווקים מפותחים, אג\"ח חברות, סופה) בשילוב אגרות חוב ממשלתיות ישראל ומדדים גלובליים (מדד הניקיי, נאסד\"ק 100, S&P 500).",
     holdings: [
       {
-        id: "usr4-1",
-        name: "קסם KTF תל גוב- שקלי",
-        isin: "IL0051180474",
-        ticker: "5118047",
-        weight: "14.97%",
-        sector: "אג\"ח ממשלתיות",
-        assetClass: "אג'ח",
-        region: "ישראל"
-      },
-      {
-        id: "usr4-2",
-        name: "תכלית TTF צמוד A ומעלה מרווח אג\"ח ממשלתי",
-        isin: "IL0051333768",
-        ticker: "5133376",
-        weight: "13.18%",
-        sector: "מדדי אג\"ח",
-        assetClass: "אג'ח",
-        region: "ישראל"
-      },
-      {
-        id: "usr4-3",
-        name: "קסםKTF תל גוב-צמודות 5-10",
-        isin: "IL0051180540",
-        ticker: "5118054",
-        weight: "12.95%",
-        sector: "אג\"ח ממשלתיות",
-        assetClass: "אג'ח",
-        region: "ישראל"
-      },
-      {
-        id: "usr4-4",
-        name: "תכלית TTF ת\"א 35",
-        isin: "IL0051094188",
-        ticker: "5109418",
-        weight: "8.97%",
-        sector: "מניות מדדים",
-        assetClass: "מניות",
-        region: "ישראל"
-      },
-      {
-        id: "usr4-5",
-        name: "תכלית TTF אינדקס ישראל שקלי A ומעלה פקטור מרווח",
-        isin: "IL0051343908",
-        ticker: "5134390",
-        weight: "6.97%",
-        sector: "מדדי אג\"ח",
-        assetClass: "אג'ח",
-        region: "ישראל"
-      },
-      {
-        id: "usr4-6",
-        name: "מור מחקה S&P 500 מנוטרלת מט\"ח",
-        isin: "IL0051230212",
-        ticker: "5123021",
-        weight: "6.51%",
-        sector: "מניות מדדים חול",
+        id: "usr6-1",
+        name: "אלטש שווק מפותח",
+        isin: "IL0051186091",
+        ticker: "5118609",
+        weight: "13.15%",
+        sector: "מניות מפותחות",
         assetClass: "מניות",
         region: "גלובלי"
       },
       {
-        id: "usr4-7",
-        name: "תכלית NASDAQ 100 TTF מנוטרלת מטח",
-        isin: "IL0051231798",
-        ticker: "5123179",
-        weight: "4.08%",
-        sector: "טכנולוגיה ומדדים",
-        assetClass: "מניות",
-        region: "גלובלי"
-      },
-      {
-        id: "usr4-8",
-        name: "תכלית TTF ת\"א 90",
-        isin: "IL0051187404",
-        ticker: "5118740",
-        weight: "4.05%",
-        sector: "מניות מדדים",
-        assetClass: "מניות",
-        region: "ישראל"
-      },
-      {
-        id: "usr4-9",
-        name: "קסם iBoxx US Liquid Investment Grade Top 30 KTF",
-        isin: "IL0051181795",
-        ticker: "5118179",
-        weight: "4.05%",
-        sector: "אג\"ח חו\"ל",
-        assetClass: "אג'ח",
-        region: "גלובלי"
-      },
-      {
-        id: "usr4-10",
-        name: "אי.בי.אי מחקה MSCI EM",
-        isin: "IL0051193188",
-        ticker: "5119318",
-        weight: "3.55%",
-        sector: "שווקים מתפתחים",
-        assetClass: "מניות",
-        region: "גלובלי"
-      },
-      {
-        id: "usr4-11",
-        name: "תכלית S&P 500 TTF",
-        isin: "IL0051139983",
-        ticker: "5113998",
-        weight: "2.79%",
-        sector: "מניות מדדים חול",
-        assetClass: "מניות",
-        region: "גלובלי"
-      },
-      {
-        id: "usr4-12",
-        name: "MTF מחקה STOXX Europe 600",
-        isin: "IL0051218431",
-        ticker: "5121843",
-        weight: "2.67%",
-        sector: "מניות אירופה",
-        assetClass: "מניות",
-        region: "גלובלי"
-      },
-      {
-        id: "usr4-13",
-        name: "מגדל כספית",
-        isin: "IL0051343098",
-        ticker: "5134309",
-        weight: "2.53%",
-        sector: "כספיות",
-        assetClass: "מזומנים",
-        region: "ישראל"
-      },
-      {
-        id: "usr4-14",
-        name: "Shiller Barclays CAPE® US Core Mid-Month Sector",
-        isin: "IL0051307374",
-        ticker: "5130737",
-        weight: "2.52%",
-        sector: "מניות מדדים חול",
-        assetClass: "מניות",
-        region: "גלובלי"
-      },
-      {
-        id: "usr4-15",
-        name: "ISHARES $ HIGH YIELD CORP BOND UCITS ETF",
-        isin: "IE00BYXYYL56",
-        ticker: "1159078",
-        weight: "2.49%",
-        sector: "אג\"ח חו\"ל",
-        assetClass: "אג'ח",
-        region: "גלובלי"
-      },
-      {
-        id: "usr4-16",
-        name: "ילין לפידות מחקה ת\"א בנקים",
-        isin: "IL0051373020",
-        ticker: "5137302",
-        weight: "2.41%",
-        sector: "פיננסים ובנקים",
-        assetClass: "מניות",
-        region: "ישראל"
-      },
-      {
-        id: "usr4-17",
-        name: "MTF מחקה (!) אינדקס HY-BBB כללי",
-        isin: "IL0051233513",
-        ticker: "5123351",
-        weight: "1.88%",
+        id: "usr6-2",
+        name: "אלטשולר שחם (!) אגח חברות ללא",
+        isin: "IL0051056971",
+        ticker: "5105697",
+        weight: "13.02%",
         sector: "אג\"ח קונצרניות",
         assetClass: "אג'ח",
         region: "ישראל"
       },
       {
-        id: "usr4-18",
-        name: "הראל סל Nikkei 225 מנוטרלת מט\"ח",
-        isin: "IL0011492514",
-        ticker: "1149251",
-        weight: "1.40%",
-        sector: "מניות יפן",
+        id: "usr6-3",
+        name: "אלטשולר שחם (!) אגח ארהב/חול ק",
+        isin: "IL0051185911",
+        ticker: "5118591",
+        weight: "9.93%",
+        sector: "אג\"ח חו\"ל",
+        assetClass: "אג'ח",
+        region: "גלובלי"
+      },
+      {
+        id: "usr6-4",
+        name: "אלטשולר שחם (!) אגח גלובלי ללא",
+        isin: "IL0051059116",
+        ticker: "5105911",
+        weight: "6.84%",
+        sector: "אג\"ח חו\"ל",
+        assetClass: "אג'ח",
+        region: "גלובלי"
+      },
+      {
+        id: "usr6-5",
+        name: "אלטשולר שחם אגח תל בונד",
+        isin: "IL0051100852",
+        ticker: "5110085",
+        weight: "5.99%",
+        sector: "מדדי אג\"ח",
+        assetClass: "אג'ח",
+        region: "ישראל"
+      },
+      {
+        id: "usr6-6",
+        name: "1025 צמודה ממשלתי",
+        isin: "IL0011359127",
+        ticker: "1135912",
+        weight: "5.63%",
+        sector: "אג\"ח ממשלתיות",
+        assetClass: "אג'ח",
+        region: "ישראל"
+      },
+      {
+        id: "usr6-7",
+        name: "גלובלי מניות (4B) שחם אלטשולר",
+        isin: "IL0051083298",
+        ticker: "5108329",
+        weight: "4.20%",
+        sector: "מניות גלובלי",
         assetClass: "מניות",
         region: "גלובלי"
       },
       {
-        id: "usr4-19",
-        name: "MTF מחקה ת\"א צמיחה",
-        isin: "IL0051236417",
-        ticker: "5123641",
-        weight: "1.36%",
+        id: "usr6-8",
+        name: "ממשלתי צמוד 0527",
+        isin: "IL0011408478",
+        ticker: "1140847",
+        weight: "3.82%",
+        sector: "אג\"ח ממשלתיות",
+        assetClass: "אג'ח",
+        region: "ישראל"
+      },
+      {
+        id: "usr6-9",
+        name: "אלטשולר שחם סופה מניות",
+        isin: "IL0051267016",
+        ticker: "5126701",
+        weight: "3.73%",
         sector: "מניות ישראל",
         assetClass: "מניות",
         region: "ישראל"
+      },
+      {
+        id: "usr6-10",
+        name: "אלטשולר שחם (!) אגח חול עד 10%",
+        isin: "IL0051077845",
+        ticker: "5107784",
+        weight: "3.53%",
+        sector: "אג\"ח חו\"ל",
+        assetClass: "אג'ח",
+        region: "גלובלי"
+      },
+      {
+        id: "usr6-11",
+        name: "04/25 0.5% שקלית ממשלתית",
+        isin: "IL0011626681",
+        ticker: "1162668",
+        weight: "3.39%",
+        sector: "אג\"ח ממשלתיות",
+        assetClass: "אג'ח",
+        region: "ישראל"
+      },
+      {
+        id: "usr6-12",
+        name: "קסם NASDAQ 100 KTF",
+        isin: "IL0051289051",
+        ticker: "5128905",
+        weight: "3.07%",
+        sector: "טכנולוגיה ומדדים",
+        assetClass: "מניות",
+        region: "ארה\"ב"
+      },
+      {
+        id: "usr6-13",
+        name: "מז טפ הנפק 46",
+        isin: "IL0023102259",
+        ticker: "2310225",
+        weight: "2.79%",
+        sector: "פיננסים ובנקים",
+        assetClass: "אג'ח",
+        region: "ישראל"
+      },
+      {
+        id: "usr6-14",
+        name: "פועלים הנפקות אגח 36",
+        isin: "None",
+        ticker: "1940659",
+        weight: "2.40%",
+        sector: "פיננסים ובנקים",
+        assetClass: "אג'ח",
+        region: "ישראל"
+      },
+      {
+        id: "usr6-15",
+        name: "אלטשולר שחם (!) אגח הזדמנויות",
+        isin: "IL0051086424",
+        ticker: "5108642",
+        weight: "2.32%",
+        sector: "אג\"ח קונצרניות",
+        assetClass: "אג'ח",
+        region: "ישראל"
+      },
+      {
+        id: "usr6-16",
+        name: "קסם S&P 500 KTF מנוטרלת מט\"ח",
+        isin: "IL0051229578",
+        ticker: "5122957",
+        weight: "2.10%",
+        sector: "מניות מדדים חול",
+        assetClass: "מניות",
+        region: "גלובלי"
+      },
+      {
+        id: "usr6-17",
+        name: "יתר (40) שחם אלטשולר",
+        isin: "IL0051059033",
+        ticker: "5105903",
+        weight: "2.00%",
+        sector: "מניות ישראל",
+        assetClass: "מניות",
+        region: "ישראל"
+      },
+      {
+        id: "usr6-18",
+        name: "קסם ETF KOSPI 200",
+        isin: "IL0011457541",
+        ticker: "1145754",
+        weight: "1.74%",
+        sector: "מניות אסיה",
+        assetClass: "מניות",
+        region: "גלובלי"
       }
     ]
   },
   {
-    name: "תיק מנותח קודם (נכסים אלטרנטיביים ו-Private Equity)",
+    name: "תיק 3 (נכסים אלטרנטיביים ו-Private Equity)",
     description: "תיק מבוזר עם ריכוזיות גבוהה במניות גלובליות ו-Private Equity (SCHF, HVPE, NBPE, FDN) השם דגש על שווקים מפותחים ונכסים אלטרנטיביים.",
     holdings: [
       {
@@ -712,7 +712,7 @@ export const PRESET_PORTFOLIOS: PresetPortfolio[] = [
     ]
   },
   {
-    name: "תיק אגרות חוב וממשלתיות מבוזר (לפי דוח קודם)",
+    name: "תיק 2 (אגרות חוב וממשלתיות מבוזר)",
     description: "תיק מבוזר המורכב ברובו מאגרות חוב קונצרניות וממשלתיות בישראל ובעולם (Goldman Sachs, PIMCO, לאומי, חשמל) לצด קרנות סל מנייתיות מובילות (S&P 500, תא 125).",
     holdings: [
       {
@@ -918,7 +918,7 @@ export const PRESET_PORTFOLIOS: PresetPortfolio[] = [
     ]
   },
   {
-    name: "תיק מגוון קרנות סל ואגרות חוב ישראל (תיק משתמש קודם)",
+    name: "תיק 1 (מגוון קרנות סל ואגרות חוב ישראל)",
     description: "תיק השקעות מגוון הכולל קרנות נאמנות וקרנות סל מובילות (SPY, הראל), מניות מובילות (מזרחי, מגה אור) ואגרות חוב ישראל.",
     holdings: [
       {
