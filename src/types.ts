@@ -9,6 +9,33 @@ export interface Holding {
   region?: string;
 }
 
+export interface FieldUpdate {
+  identifier: string;         // מזהה השדה (אייזן או מספר נייר)
+  identifier_type: number;    // סוג המזהה: 1 לאייזן, 2 למספר נייר/טיקר
+  sources: string[];          // מערך קישורי מקורות (URLs)
+  title: string;              // כותרת העדכון (טקסט פשוט)
+  summary: string;            // תקציר העדכון (טקסט פשוט)
+  category: string;           // תגית קטגוריזציה
+}
+
+export interface AICardChip {
+  label: string;
+  type: "info" | "good" | "warn";
+}
+
+export interface AICardNewsItem {
+  tag: string;
+  title: string;
+  body: string;
+  sources: string[];
+}
+
+export interface AICard {
+  lead: string;
+  toc_chips: AICardChip[];
+  news_items: AICardNewsItem[];
+}
+
 export interface PortfolioReport {
   portfolio_label: string;
   report_title: string;
@@ -34,4 +61,6 @@ export interface AnalysisResponse {
   report: PortfolioReport;
   topHoldingsSkipped: number;
   searchedHoldings: SearchedHoldingSummary[];
+  field_updates: FieldUpdate[];
+  ai_card: AICard;
 }
