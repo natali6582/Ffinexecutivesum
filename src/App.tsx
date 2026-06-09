@@ -119,6 +119,94 @@ function parsePipeDelimitedHoldings(text: string): Holding[] {
   return parsed;
 }
 
+// Unified robust parser supporting both pipe-delimited list and direct or truncated JSON structures
+function parseBroadHoldings(text: string): Holding[] {
+  const trimmed = text.trim();
+  
+  if (trimmed.includes("securityName") || trimmed.includes("holdingPercent")) {
+    const list: Holding[] = [];
+    const parts = trimmed.split(/"securityName"\s*:/);
+    
+    for (let i = 1; i < parts.length; i++) {
+      const piece = parts[i];
+      
+      let name = "נכס מותאם";
+      const nameMatch = piece.match(/^\s*"([^"]*)"/);
+      if (nameMatch) {
+        name = nameMatch[1];
+      }
+      
+      let assetClass = "מניות";
+      const typeMatch = piece.match(/"securityType"\s*:\s*"([^"]*)"/);
+      if (typeMatch) {
+        const rawType = typeMatch[1];
+        if (rawType.includes("מני") || rawType.includes("Stock") || rawType.includes("Equit")) assetClass = "מניות";
+        else if (rawType.includes("אג") || rawType.includes("Bond") || rawType.includes("Debt")) assetClass = "אג'ח";
+        else if (rawType.includes("קרנ") || rawType.includes("Fund") || rawType.includes("ETF")) assetClass = "קרנות";
+        else if (rawType.includes("מזו") || rawType.includes("Cash") || rawType.includes("Liqui")) assetClass = "מזומנים";
+        else assetClass = rawType;
+      }
+      
+      let isin = "";
+      const isinMatch = piece.match(/"ISIN"\s*:\s*"?([A-Z0-9]{12})"?/);
+      if (isinMatch) {
+        isin = isinMatch[1];
+      }
+      
+      let ticker = "";
+      const numMatch = piece.match(/"securityNumber"\s*:\s*"([^"]+)"/);
+      if (numMatch) {
+         ticker = numMatch[1];
+      } else if (isin) {
+         ticker = isin.substring(0, 4);
+      }
+      
+      let weight = "2.0%";
+      const weightMatch = piece.match(/"holdingPercent"\s*:\s*([0-9.]+)/);
+      if (weightMatch) {
+        weight = parseFloat(weightMatch[1]).toFixed(2) + "%";
+      }
+      
+      let sector = "כללי";
+      const sectorGroupIndex = piece.indexOf('"סקטורים"');
+      if (sectorGroupIndex !== -1) {
+        const afterSector = piece.substring(sectorGroupIndex, sectorGroupIndex + 500);
+        const secValMatch = afterSector.match(/"name"\s*:\s*"([^"]*)"/);
+        if (secValMatch) {
+          sector = secValMatch[1].replace(/\\"/g, '"');
+        }
+      }
+      
+      let region = "גלובלי";
+      const regionGroupIndex = piece.indexOf('"גיאוגרפי"');
+      if (regionGroupIndex !== -1) {
+        const afterRegion = piece.substring(regionGroupIndex, regionGroupIndex + 500);
+        const regValMatch = afterRegion.match(/"name"\s*:\s*"([^"]*)"/);
+        if (regValMatch) {
+          region = regValMatch[1].replace(/\\"/g, '"');
+        }
+      }
+      
+      list.push({
+        id: "h-ext-json-" + Date.now() + "-" + i + "-" + Math.random().toString(36).substr(2, 4),
+        name,
+        isin,
+        ticker,
+        weight,
+        sector,
+        assetClass,
+        region
+      });
+    }
+    
+    if (list.length > 0) {
+      return list;
+    }
+  }
+
+  return parsePipeDelimitedHoldings(text);
+}
+
 export default function App() {
   // State for raw list of assets
   const [holdings, setHoldings] = useState<Holding[]>(() => {
@@ -829,9 +917,9 @@ export default function App() {
   const handleApplyExtraction = () => {
     if (!extractorText.trim()) return;
     try {
-      const parsed = parsePipeDelimitedHoldings(extractorText);
+      const parsed = parseBroadHoldings(extractorText);
       if (parsed.length === 0) {
-        alert("לא נמצאו נכסים תקינים לשיבוץ. ודא כי הטקסט מופרד בתווים '|' המייצגים עמודות נכסים.");
+        alert("לא נמצאו נכסים תקינים לשיבוץ. ודא כי הטקסט תואם למבנה מופרד בתווים '|' או לפורמט ה-JSON של התיק.");
         return;
       }
       setHoldings(parsed);
