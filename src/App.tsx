@@ -9,7 +9,9 @@ import {
   Code, 
   ChevronRight, 
   Sparkles, 
-  Layers
+  Layers,
+  Download,
+  AlertTriangle
 } from "lucide-react";
 import { Holding, AnalysisResponse } from "./types";
 import { PRESET_PORTFOLIOS } from "./presets";
@@ -153,6 +155,341 @@ export default function App() {
     navigator.clipboard.writeText(JSON.stringify(reportData.report, null, 2));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const isInIframe = typeof window !== "undefined" && window.self !== window.top;
+
+  const handleDownloadHTML = () => {
+    if (!reportData) return;
+    
+    const rep = reportData.report;
+
+    // Build the dynamic items list for holdings
+    const holdingsRows = holdings.map((h, i) => `
+      <tr class="border-b border-slate-150 hover:bg-slate-50/50">
+        <td class="px-4 py-2.5 text-center font-bold font-mono text-slate-800">${h.weight || ""}</td>
+        <td class="px-4 py-2.5 text-right font-semibold text-slate-900">${h.name || ""}</td>
+        <td class="px-4 py-2.5 text-center font-mono text-slate-500 text-xs">${h.isin || "N/A"}</td>
+        <td class="px-4 py-2.5 text-center font-mono text-slate-500 text-xs">${h.ticker || "N/A"}</td>
+        <td class="px-4 py-2.5 text-right text-slate-600 text-xs">${h.sector || "כללי"}</td>
+        <td class="px-4 py-2.5 text-right text-slate-600 text-xs">${h.assetClass || "מניות"}</td>
+      </tr>
+    `).join('');
+
+    // Executive summary split
+    const execSummaryParas = rep.executive_summary.split("\n\n").map((para: string, idx: number) => `
+      <p class="text-slate-700 text-sm md:text-base leading-relaxed mb-4 ${idx === 0 ? "italic text-slate-800 font-medium" : ""}">
+        ${para}
+      </p>
+    `).join("");
+
+    // Market Updates split
+    const marketUpdatesParts = rep.field_updates_summary.split("\n\n").filter((p: string) => p.trim().length > 0);
+    const marketUpdatesHtml = marketUpdatesParts.map((p: string, idx: number) => {
+      const isFirst = idx === 0;
+      const borderStyle = isFirst 
+        ? "border-r-2 border-emerald-500 pr-4" 
+        : "border-r-2 border-slate-600 pr-4";
+      const componentLabel = isFirst ? "text-emerald-400" : "text-slate-400";
+      return `
+        <div class="${borderStyle} py-1 text-right mb-5">
+          <p class="text-xs font-mono tracking-widest uppercase ${componentLabel}">
+            COMPONENT UPDATE #${idx + 1}
+          </p>
+          <p class="text-sm text-slate-300 mt-1 font-sans leading-relaxed">${p}</p>
+        </div>
+      `;
+    }).join("");
+
+    // Key findings bullet lists
+    const findingsLines = rep.key_findings
+      .split(/\n+/)
+      .map((line: string) => line.replace(/^-\s*/, "").replace(/^\*\s*/, "").replace(/^\d+[\.\-]\s*/, "").trim())
+      .filter((line: string) => line.length > 0);
+    const findingsHtml = findingsLines.map((line: string, idx: number) => {
+      const numStr = String(idx + 1).padStart(2, "0");
+      return `
+        <li class="flex items-start gap-3 flex-row-reverse text-right mb-4">
+          <span class="bg-slate-950 text-white font-bold px-2 py-0.5 text-xs font-mono rounded-sm shrink-0">
+            ${numStr}
+          </span>
+          <span class="text-sm text-slate-700 font-sans leading-relaxed flex-1">${line}</span>
+        </li>
+      `;
+    }).join("");
+
+    // Action principles bullet list with badges
+    const actionLines = rep.action_principles
+      .split(/\n+/)
+      .map((line: string) => line.replace(/^-\s*/, "").replace(/^\*\s*/, "").replace(/^\d+[\.\-]\s*/, "").trim())
+      .filter((line: string) => line.length > 0);
+    const actionHtml = actionLines.map((line: string, idx: number) => {
+      let type = "בקרה";
+      let badgeColor = "text-emerald-800 bg-white border border-emerald-300";
+      
+      if (line.includes("לבחון") || line.includes("בחירה")) {
+        type = "בחינה";
+        badgeColor = "text-emerald-800 bg-white border border-emerald-300 shadow-sm";
+      } else if (line.includes("למעקב") || line.includes("עקוב") || line.includes("לעקוב")) {
+        type = "מעקב";
+        badgeColor = "text-slate-800 bg-white border border-slate-300 shadow-sm";
+      } else if (line.includes("לבדוק") || line.includes("בדיקה")) {
+        type = "בדיקה";
+        badgeColor = "text-slate-800 bg-white border border-slate-300 shadow-sm";
+      } else {
+        type = "בקרה";
+        badgeColor = "text-emerald-800 bg-white border border-emerald-300 shadow-sm";
+      }
+
+      return `
+        <div class="bg-white p-4 rounded-sm border border-emerald-200/80 shadow-sm text-right mb-3">
+          <div class="flex items-center justify-between mb-2 flex-row-reverse">
+            <span class="text-[11px] font-black tracking-wider px-2.5 py-0.5 uppercase rounded-sm ${badgeColor}">
+              ${type}
+            </span>
+            <span class="text-[10px] text-slate-400 font-mono">AP-0${idx + 1}</span>
+          </div>
+          <p class="text-[13.5px] text-slate-800 font-sans font-medium leading-relaxed">${line}</p>
+        </div>
+      `;
+    }).join("");
+
+    // Standalone HTML template with complete print & presentation styling
+    const htmlContent = `<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${rep.report_title} | FinExecutiveSum</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font import -->
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;950&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Rubik', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    @media print {
+      body {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        padding: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .print-card {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      @page {
+        margin: 1.2cm;
+      }
+    }
+  </style>
+</head>
+<body class="p-4 sm:p-8 md:p-12">
+
+  <div class="max-w-5xl mx-auto space-y-6">
+    
+    <!-- EXPORT TOOLBAR (SCREEN-ONLY) -->
+    <div class="no-print bg-slate-900 text-white rounded-sm border border-slate-950 p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 mb-8 shadow-md">
+      <div class="text-right">
+        <div class="text-[9px] font-bold text-emerald-400 tracking-widest uppercase font-mono">ייצוא דוח מקומי מאובטח</div>
+        <h4 class="text-base font-black leading-tight text-white mt-0.5">דוח מחקר מלא מוכן להדפסה / שמירה כ-PDF</h4>
+        <p class="text-slate-400 text-[11.5px] leading-relaxed mt-1">קובץ זה מיוצר באופן עצמאי בלבד במחשבך. כעת, כשהאפליקציה פתוחה בלשונית נפרדת זו, דיאלוג ההדפסה של הדפדפן שלך יעבוד באופן מושלם.</p>
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        <button onclick="window.close()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2 rounded-sm text-xs border border-slate-700 transition-all cursor-pointer">
+          סגור דף
+        </button>
+        <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-6 py-2.5 rounded-sm text-xs transition-all shadow-sm flex items-center gap-2 cursor-pointer font-sans">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+          הדפס דוח זה
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN DOSSIER (SWISS INSPIRED BEAUTIFUL UTILITY SCREEN) -->
+    <div class="bg-white rounded-none border-2 border-slate-900 overflow-hidden p-6 sm:p-8 md:p-10 space-y-6 text-right print-card">
+      
+      <!-- Report Header block -->
+      <header class="flex flex-col sm:flex-row justify-between items-end border-b-2 border-slate-900 pb-5 mb-8 text-right gap-4">
+        <div class="flex-1 w-full">
+          <p class="text-xs font-bold tracking-widest text-slate-500 uppercase mb-1 font-mono">
+            ${rep.portfolio_label} | FINEXECUTIVESUM
+          </p>
+          <h1 class="text-2xl sm:text-3xl md:text-3xl font-extrabold tracking-tight text-slate-900">
+            ${rep.report_title}
+          </h1>
+          <p class="text-base text-slate-600 mt-1 italic">
+            ${rep.report_subtitle}
+          </p>
+        </div>
+        <div class="text-right sm:text-left border-r-2 sm:border-r-0 sm:border-l-2 border-slate-200 pr-4 sm:pr-0 sm:pl-6 shrink-0 w-full sm:w-auto">
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">סטטוס דיווח</div>
+          <div class="text-xl sm:text-2xl font-mono font-black text-emerald-600 uppercase">מבוקר ומאושר</div>
+        </div>
+      </header>
+
+      <!-- Grid 12 Columns Layout -->
+      <div class="grid grid-cols-12 gap-6 md:gap-8">
+        
+        <!-- Left Wing - 8 Columns -->
+        <div class="col-span-12 lg:col-span-8 flex flex-col gap-6">
+          
+          <!-- Executive Summary Card -->
+          <div class="bg-white border border-slate-200 p-6 rounded-sm text-right">
+            <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3.5 border-r-4 border-slate-900 pr-3">
+              סיכום מנהלים
+            </h2>
+            <div class="text-slate-700 leading-relaxed text-sm">
+              ${execSummaryParas}
+            </div>
+          </div>
+
+          <!-- Dark block: Market Updates -->
+          <div class="bg-slate-900 text-white p-6 rounded-sm flex-grow text-right relative overflow-hidden">
+            <h2 class="text-xs font-black uppercase tracking-widest text-emerald-400 mb-5 flex items-center gap-2 flex-row-reverse justify-end">
+              <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full shrink-0"></span>
+              <span>עדכוני שוק - אחזקות מובילות (GOOGLE GROUNDING)</span>
+            </h2>
+            
+            <div class="space-y-5">
+              ${marketUpdatesHtml}
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Wing - 4 Columns -->
+        <div class="col-span-12 lg:col-span-4 flex flex-col gap-6">
+          
+          <!-- Key Findings Card -->
+          <div class="bg-white border border-slate-200 p-5 rounded-sm text-right">
+            <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 border-r-4 border-slate-900 pr-3">
+              ממצאים עיקריים
+            </h2>
+            <ul class="space-y-3.5 text-right">
+              ${findingsHtml}
+            </ul>
+          </div>
+
+          <!-- Allocation Detailed Overview List -->
+          <div class="bg-white border border-slate-200 p-5 rounded-sm text-right font-sans">
+            <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3 border-r-4 border-slate-900 pr-3">
+              פילוח והקצאת נכסים
+            </h2>
+            <p class="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap mb-4">
+              ${rep.allocation_summary}
+            </p>
+            
+            <!-- Embedded micro spreadsheet of weights mapping -->
+            <div class="bg-slate-50 border border-slate-150 rounded-sm overflow-hidden text-right">
+              <table class="w-full text-[11px] text-right">
+                <thead class="bg-slate-100 text-[9px] text-slate-500 border-b border-slate-200 font-mono">
+                  <tr>
+                    <th scope="col" class="px-2.5 py-1.5 text-center font-bold">משקל</th>
+                    <th scope="col" class="px-2.5 py-1.5 text-right font-bold pr-3">נכס</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-150 text-slate-700">
+                  ${holdings.map((h) => `
+                    <tr class="hover:bg-slate-50/50">
+                      <td class="px-2.5 py-1 text-center font-bold font-mono text-slate-900">${h.weight || ""}</td>
+                      <td class="px-2.5 py-1 pr-3 font-semibold text-slate-800 text-[11.5px] truncate">${h.name || ""}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Action Principles Card -->
+          <div class="bg-emerald-50 border border-emerald-100 p-5 rounded-sm text-right">
+            <h2 class="text-xs font-black uppercase tracking-widest text-emerald-800 mb-4 border-r-4 border-emerald-700 pr-3 font-semibold">
+              נקודות לבחינה ובקרה
+            </h2>
+            <div>
+              ${actionHtml}
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Holdings spreadsheet table (Expanded for export!) -->
+      <div class="bg-white border border-slate-200 p-0 rounded-sm overflow-hidden text-right mt-6">
+        <div class="bg-slate-50 px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-row-reverse">
+          <span class="text-[10px] font-mono font-bold text-slate-400">HOLDINGS SPEC SHEET (FULL RECONCILIATION)</span>
+          <h3 class="text-xs font-black text-slate-900 border-r-3 border-slate-900 pr-2 leading-none">טבלת נכסי תיק ההשקעות المלא</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-right border-collapse">
+            <thead class="bg-slate-100/80 text-slate-500 border-b border-slate-200 font-bold">
+              <tr>
+                <th scope="col" class="px-4 py-2.5 text-center">משקל</th>
+                <th scope="col" class="px-4 py-2.5 text-right">שם נייר הערך / נכס</th>
+                <th scope="col" class="px-4 py-2.5 text-center">קוד ISIN</th>
+                <th scope="col" class="px-4 py-2.5 text-center">טיקר</th>
+                <th scope="col" class="px-4 py-2.5 class text-right">סקטור / מגזר</th>
+                <th scope="col" class="px-4 py-2.5 class text-right">סוג נכס</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-150">
+              ${holdingsRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Subordinate Findings -->
+      <div class="bg-white border border-slate-200 p-5 rounded-sm text-right mt-6">
+        <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3 border-r-4 border-slate-900 pr-3">
+          ניתוח אחזקות מובילות ופרמטרים למעקב
+        </h2>
+        <p class="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">
+          ${rep.top_holdings_analysis}
+        </p>
+      </div>
+
+      <!-- Regulatory Compliance Footer section -->
+      <footer class="mt-8 pt-4 border-t border-slate-200 text-right">
+        <div class="flex flex-col sm:flex-row justify-between items-center text-[10px] text-slate-400 leading-relaxed gap-6 flex-col-reverse">
+          <p class="max-w-4xl text-slate-400 font-sans">
+            ${rep.compliance_note}
+          </p>
+          <div class="text-right sm:text-left font-mono whitespace-nowrap uppercase tracking-widest bg-slate-50 border border-slate-150 px-2.5 py-1 text-slate-500 rounded-sm">
+            מזהה דוח: FX-30-2026-V30
+          </div>
+        </div>
+      </footer>
+
+    </div>
+
+  </div>
+
+</body>
+</html>`;
+
+    // Download file script
+    const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `דוח_ניתוח_תיק_השקעות_${rep.portfolio_label.replace(/\s+/g, "_")}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Minimal themed bullet lists 01, 02, 03...
@@ -632,6 +969,15 @@ export default function App() {
                 <Printer className="w-3.5 h-3.5" />
                 הדפס דוח (PDF)
               </button>
+
+              <button
+                onClick={handleDownloadHTML}
+                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-xs text-xs font-bold transition-all cursor-pointer shadow-xs"
+                title="שמור והורד את הדו״ח המלא כקובץ HTML מעוצב"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-250" />
+                הורד כקובץ HTML לכונן המקומי
+              </button>
             </div>
 
             <div className="flex items-center">
@@ -645,6 +991,32 @@ export default function App() {
             </div>
 
           </div>
+
+          {/* iframe Printing Blocker Alert */}
+          {isInIframe && (
+            <div className="no-print bg-amber-50 border border-amber-250 rounded-sm p-4 text-right flex items-start gap-3.5 flex-row-reverse shadow-xs">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-bold text-amber-950 text-sm mb-1 leading-none">מדוע כפתור ההדפסה מרגיש מושבת? (מגבלת iFrame בממשק)</h4>
+                <p className="text-amber-800 text-xs font-sans leading-relaxed">
+                  דפדפנים מצד אבטחה קשיחה חוסמים פתיחת דיאלוג הדפסה (<code className="font-mono font-bold bg-amber-100/60 px-1 py-0.5 text-amber-900">window.print</code>) מתוך תצוגה מקדימה משובצת (iFrame) של AI Studio. תוכלי לפתור זאת בשתי דרכים קלות:
+                </p>
+                <div className="mt-3.5 flex items-center gap-3 justify-end flex-wrap">
+                  <span className="text-[11px] text-slate-500 font-sans">
+                    1. <strong>המלצה מועדפת:</strong> פתחי את האפליקציה בלשונית חיצונית חדשה (על ידי לחיצה על כפתור ה- <strong>"פתיחה בלשונית חדשה" ↗</strong> הממוקם בצד שמאל למעלה בנגן) והדפיסי משם בצורה מושלמת.
+                  </span>
+                  <span className="text-[11.5px] text-slate-400">|</span>
+                  <button
+                    onClick={handleDownloadHTML}
+                    className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-xs font-bold text-[11px] transition-all cursor-pointer shadow-xs flex items-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-400" />
+                    2. הורד את הדוח הפיננסי לקובץ HTML עצמאי
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Core view toggler */}
           {rawView ? (
@@ -818,7 +1190,7 @@ export default function App() {
           )}
 
           {/* Quick Return Actions */}
-          <div className="no-print flex justify-center pb-8 gap-4 pt-2">
+          <div className="no-print flex justify-center pb-8 gap-4 pt-2 flex-wrap">
             <button
               onClick={() => setReportData(null)}
               className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-sans text-xs font-black px-5 py-2 rounded-sm shadow-xs cursor-pointer uppercase transition-all border border-slate-950"
@@ -829,10 +1201,20 @@ export default function App() {
             
             <button
               onClick={() => window.print()}
-              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-sans text-xs font-black px-5 py-2 rounded-sm shadow-xs cursor-pointer uppercase transition-all border border-emerald-700"
+              className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 text-slate-800 font-sans text-xs font-black px-5 py-2 rounded-sm shadow-xs cursor-pointer uppercase transition-all border border-slate-300"
+              title="מתאים להדפסה בלשונית חיצונית של האפליקציה"
             >
-              <Printer className="w-4 h-4 text-emerald-200" />
+              <Printer className="w-4 h-4 text-slate-500" />
               הדפס דוח השקעות מבוקר
+            </button>
+
+            <button
+              onClick={handleDownloadHTML}
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-sans text-xs font-black px-5 py-2 rounded-sm shadow-xs cursor-pointer uppercase transition-all border border-emerald-700"
+              title="שמור את הדוח המלא כקובץ HTML למחשב"
+            >
+              <Download className="w-4 h-4 text-emerald-250" />
+              הורד כקובץ HTML עצמאי
             </button>
           </div>
 
