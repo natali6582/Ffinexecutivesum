@@ -7,6 +7,7 @@ export interface Holding {
   sector?: string;
   assetClass?: string;
   region?: string;
+  securityNumber?: string;
 }
 
 export interface FieldUpdate {
@@ -16,6 +17,9 @@ export interface FieldUpdate {
   title: string;              // כותרת העדכון (טקסט פשוט)
   summary: string;            // תקציר העדכון (טקסט פשוט)
   category: string;           // תגית קטגוריזציה
+  source_url?: string | null;
+  retrieved_at?: string;
+  relevance_reason?: string;
 }
 
 export interface AICardChip {
@@ -73,4 +77,6 @@ export interface AnalysisResponse {
   field_updates: FieldUpdate[];
   ai_card: AICard;
   input_echo?: InputEcho;
+  isFallbackActive?: boolean;
+  fallbackReason?: string;
 }

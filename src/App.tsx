@@ -100,15 +100,20 @@ function parsePipeDelimitedHoldings(text: string): Holding[] {
       const numSeg = segments.find(s => /^\d+(\.\d+)?$/.test(s.replace("%","").trim()));
       weight = numSeg ? (numSeg.includes("%") ? numSeg : numSeg + "%") : "10%";
     }
-    if (!ticker && isin) {
-      ticker = isin.substring(0, 4);
+    
+    // Clean tickers and ISINs, avoiding derived or invented codes
+    const finalIsin = (isin === null || isin === undefined || isin.trim() === "" || isin.trim().toLowerCase() === "none" || isin.trim().toLowerCase() === "null") ? "" : isin.trim();
+    let finalTicker = ticker || "";
+    const upperT = finalTicker.toUpperCase();
+    if (upperT === "CASH" || upperT === "ILS_CASH" || upperT === "USD_CASH" || upperT === "GBP_CASH" || upperT === "NONE" || upperT === "NULL") {
+      finalTicker = "";
     }
 
     parsed.push({
       id: "h-ext-" + Date.now() + Math.random().toString(36).substr(2, 4),
       name,
-      isin,
-      ticker,
+      isin: finalIsin,
+      ticker: finalTicker,
       weight,
       sector,
       assetClass,
@@ -201,12 +206,12 @@ function parseBroadHoldings(text: string): Holding[] {
                 else if (rawType.includes("מזו") || rawType.includes("Cash") || rawType.includes("Liqui")) assetClass = "מזומנים";
               }
 
-              const isin = raw.ISIN && raw.ISIN !== "null" ? raw.ISIN : "";
-              let ticker = "";
-              if (raw.ticker) {
-                ticker = raw.ticker;
-              } else if (isin) {
-                ticker = isin.substring(0, 4);
+              const isin = (raw.ISIN && raw.ISIN !== "null" && raw.ISIN !== "None") ? raw.ISIN : "";
+              let ticker = raw.ticker || "";
+              const securityNumber = raw.securityNumber || "";
+              const upperTicker = ticker.toUpperCase();
+              if (upperTicker === "CASH" || upperTicker === "ILS_CASH" || upperTicker === "USD_CASH" || upperTicker === "GBP_CASH" || upperTicker === "NONE" || upperTicker === "NULL") {
+                ticker = "";
               }
 
               let weight = "2.00%";
@@ -222,6 +227,7 @@ function parseBroadHoldings(text: string): Holding[] {
                 name: nameDisplay,
                 isin,
                 ticker,
+                securityNumber,
                 weight,
                 sector,
                 assetClass,
@@ -247,11 +253,32 @@ function parseBroadHoldings(text: string): Holding[] {
   return parsePipeDelimitedHoldings(text);
 }
 
+const display = (val: any) => {
+  if (val === null || val === undefined || String(val).trim() === "" || String(val).trim().toLowerCase() === "none" || String(val).trim().toLowerCase() === "null") {
+    return "לא סופק";
+  }
+  return String(val);
+};
+
+function sanitizeHolding(h: Holding): Holding {
+  const isin = (h.isin === null || h.isin === undefined || h.isin.trim() === "" || h.isin.trim().toLowerCase() === "none" || h.isin.trim().toLowerCase() === "null") ? "" : h.isin.trim();
+  let ticker = h.ticker || "";
+  const upperTicker = ticker.trim().toUpperCase();
+  if (upperTicker === "CASH" || upperTicker === "ILS_CASH" || upperTicker === "USD_CASH" || upperTicker === "GBP_CASH" || upperTicker === "NONE" || upperTicker === "NULL") {
+    ticker = "";
+  }
+  return {
+    ...h,
+    isin,
+    ticker
+  };
+}
+
 export default function App() {
   // State for raw list of assets
   const [holdings, setHoldings] = useState<Holding[]>(() => {
     // Start with the first preset
-    return JSON.parse(JSON.stringify(PRESET_PORTFOLIOS[0].holdings));
+    return JSON.parse(JSON.stringify(PRESET_PORTFOLIOS[0].holdings)).map(sanitizeHolding);
   });
 
   const [selectedPresetIndex, setSelectedPresetIndex] = useState<number>(0);
@@ -306,7 +333,7 @@ export default function App() {
   // Load a preset portfolio
   const handleLoadPreset = (index: number) => {
     setSelectedPresetIndex(index);
-    setHoldings(JSON.parse(JSON.stringify(PRESET_PORTFOLIOS[index].holdings)));
+    setHoldings(JSON.parse(JSON.stringify(PRESET_PORTFOLIOS[index].holdings)).map(sanitizeHolding));
     setReportData(null);
     setActiveTab("edit");
   };
@@ -379,6 +406,7 @@ export default function App() {
         name: h.name,
         isin: h.isin,
         ticker: h.ticker,
+        securityNumber: h.securityNumber,
         weight: h.weight,
         sector: h.sector,
         assetClass: h.assetClass,
@@ -434,7 +462,7 @@ export default function App() {
     const rep = reportData.report;
 
     const cleanVal = (val: any) => {
-      if (val === null || val === undefined || String(val).trim() === "" || String(val).trim().toLowerCase() === "none") {
+      if (val === null || val === undefined || String(val).trim() === "" || String(val).trim().toLowerCase() === "none" || String(val).trim().toLowerCase() === "null") {
         return "לא סופק";
       }
       return String(val);
@@ -446,7 +474,7 @@ export default function App() {
         <td class="px-4 py-2.5 text-center font-bold font-mono text-slate-800">${cleanVal(h.weight)}</td>
         <td class="px-4 py-2.5 text-right font-semibold text-slate-900">${cleanVal(h.name)}</td>
         <td class="px-4 py-2.5 text-center font-mono text-slate-500 text-xs">${cleanVal(h.isin)}</td>
-        <td class="px-4 py-2.5 text-center font-mono text-slate-500 text-xs">${cleanVal(h.ticker)}</td>
+        <td class="px-4 py-2.5 text-center font-mono text-slate-500 text-xs">${cleanVal(h.ticker || h.securityNumber)}</td>
         <td class="px-4 py-2.5 text-right text-slate-600 text-xs">${cleanVal(h.sector)}</td>
         <td class="px-4 py-2.5 text-right text-slate-600 text-xs">${cleanVal(h.assetClass)}</td>
       </tr>
@@ -504,19 +532,24 @@ export default function App() {
           <div class="${borderStyle} py-1 text-right mb-5" style="border-right-width: 2px;">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-direction: row-reverse; flex-wrap: wrap; margin-bottom: 6px;">
               <span style="font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 2px; ${badgeStyle}">
-                ${update.category || "עדכון כללי"}
+                ${cleanVal(update.category || "עדכון כללי")}
               </span>
               <span style="font-size: 10px; font-family: monospace; color: #64748b;">
-                מזהה נייר: ${update.identifier} (${update.identifier_type === 1 ? "ISIN" : "מס׳ נייר"})
+                מזהה נייר: ${cleanVal(update.identifier)} (${update.identifier_type === 1 ? "ISIN" : "מס׳ נייר"})
               </span>
             </div>
             
             <h4 style="font-size: 14px; font-weight: bold; color: #f8fafc; margin-top: 4px; margin-bottom: 4px; font-family: sans-serif;">
-              ${update.title}
+              ${cleanVal(update.title)}
             </h4>
             <p style="font-size: 12px; color: #94a3b8; line-height: 1.5; margin-bottom: 8px; font-family: sans-serif;">
-              ${update.summary}
+              ${cleanVal(update.summary)}
             </p>
+            ${update.relevance_reason ? `
+            <p style="font-size: 11px; color: #f59e0b; font-style: italic; margin-bottom: 8px; font-family: sans-serif; padding-right: 8px; border-right: 2px solid rgba(245, 158, 11, 0.4); text-align: right; direction: rtl;">
+              שיוך וזיקה: ${cleanVal(update.relevance_reason)}
+            </p>
+            ` : ""}
             
             <div style="display: flex; align-items: center; justify-content: space-between; flex-direction: row-reverse; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); font-size: 11px;">
               <div style="display: flex; align-items: center; flex-direction: row-reverse; color: #94a3b8;">
@@ -751,8 +784,8 @@ export default function App() {
                 <tbody class="divide-y divide-slate-150 text-slate-700">
                   ${holdings.map((h) => `
                     <tr class="hover:bg-slate-50/50">
-                      <td class="px-2.5 py-1 text-center font-bold font-mono text-slate-900">${h.weight || ""}</td>
-                      <td class="px-2.5 py-1 pr-3 font-semibold text-slate-800 text-[11.5px] truncate">${h.name || ""}</td>
+                      <td class="px-2.5 py-1 text-center font-bold font-mono text-slate-900">${cleanVal(h.weight)}</td>
+                      <td class="px-2.5 py-1 pr-3 font-semibold text-slate-800 text-[11.5px] truncate">${cleanVal(h.name)}</td>
                     </tr>
                   `).join('')}
                 </tbody>
@@ -935,19 +968,24 @@ export default function App() {
                   <span className={`text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-xs uppercase leading-none ${
                     isFirst ? "bg-emerald-950 text-emerald-300 border border-emerald-800" : "bg-slate-800 text-slate-300 border border-slate-700"
                   }`}>
-                    {update.category || "עדכון כללי"}
+                    {display(update.category || "עדכון כללי")}
                   </span>
                   <span className="text-[10px] font-mono text-slate-500">
-                    מזהה נייר: {update.identifier} ({update.identifier_type === 1 ? "ISIN" : "מס׳ נייר"})
+                    מזהה נייר: {display(update.identifier)} ({update.identifier_type === 1 ? "ISIN" : "מס׳ נייר"})
                   </span>
                 </div>
                 
-                <h4 className="text-sm font-bold text-slate-100 font-sans leading-snug">
-                  {update.title}
+                <h4 className="text-sm font-bold text-slate-100 font-sans leading-snug font-sans">
+                  {display(update.title)}
                 </h4>
                 <p className="text-xs text-slate-400 mt-1 font-sans leading-relaxed font-normal">
-                  {update.summary}
+                  {display(update.summary)}
                 </p>
+                {update.relevance_reason && (
+                  <p className="text-[10.5px] text-amber-300/90 mt-1 font-sans leading-relaxed italic pr-2 border-r-2 border-amber-500/30">
+                    שיוך וזיקה: {display(update.relevance_reason)}
+                  </p>
+                )}
 
                 {/* Weighted Scoring Badge based on holding centrality + severity */}
                 <div className="mt-2.5 flex items-center justify-between text-[11px] flex-row-reverse leading-none flex-wrap gap-2 pt-2 border-t border-slate-800/40">
@@ -1022,7 +1060,7 @@ export default function App() {
   const handleApplyExtraction = () => {
     if (!extractorText.trim()) return;
     try {
-      const parsed = parseBroadHoldings(extractorText);
+      const parsed = parseBroadHoldings(extractorText).map(sanitizeHolding);
       if (parsed.length === 0) {
         alert("לא נמצאו נכסים תקינים לשיבוץ. ודא כי הטקסט תואם למבנה מופרד בתווים '|' או לפורמט ה-JSON של התיק.");
         return;
@@ -1328,7 +1366,7 @@ export default function App() {
                     <th scope="col" className="px-3 py-3 text-center w-24 border-l border-slate-150">סוג נכס</th>
                     <th scope="col" className="px-4 py-3 text-center w-20 border-l border-slate-150">משקל %</th>
                     <th scope="col" className="px-4 py-3 text-center w-40 border-l border-slate-150">קוד ני"ע ISIN</th>
-                    <th scope="col" className="px-3 py-3 text-center w-24 border-l border-slate-150">סימול</th>
+                    <th scope="col" className="px-3 py-3 text-center w-24 border-l border-slate-150">מספר נייר / טיקר</th>
                     <th scope="col" className="px-4 py-3 pr-6">שם תאגיד פיננסי / נכס המטרה</th>
                   </tr>
                 </thead>
@@ -1426,7 +1464,7 @@ export default function App() {
                         <td className="px-3 py-2 border-l border-slate-150">
                           <input
                             type="text"
-                            value={holding.ticker}
+                            value={holding.ticker || holding.securityNumber || ""}
                             onChange={(e) => handleUpdateHolding(holding.id, "ticker", e.target.value.toUpperCase())}
                             className="w-full bg-slate-50 focus:bg-white text-center font-mono font-semibold border border-slate-200 focus:border-slate-900 rounded-2xs px-2 py-1 text-xs outline-none"
                             placeholder="NVDA"
@@ -1744,8 +1782,8 @@ export default function App() {
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           {reportData.searchedHoldings.map((sh, idx) => (
                             <div key={idx} className="bg-slate-950 border border-slate-800 rounded-sm p-3 text-right">
-                              <p className="text-xs font-bold text-slate-200 truncate">{sh.name}</p>
-                              <p className="text-[10px] font-mono text-slate-500 leading-none mt-1 tracking-tight">{sh.isin}</p>
+                              <p className="text-xs font-bold text-slate-200 truncate">{display(sh.name)}</p>
+                              <p className="text-[10px] font-mono text-slate-500 leading-none mt-1 tracking-tight">{display(sh.isin)}</p>
                               <div className="mt-2 flex items-center justify-between text-[11px] flex-row-reverse leading-none">
                                 <span className="text-emerald-400 font-mono font-bold">{sh.sourcesCount} CRAWLS</span>
                                 <span className="text-slate-600 font-mono text-[9px] uppercase">GROUNDED</span>
@@ -1791,8 +1829,8 @@ export default function App() {
                         <tbody className="divide-y divide-slate-150 text-slate-700">
                           {holdings.map((h, i) => (
                             <tr key={i} className="hover:bg-slate-50/50">
-                              <td className="px-2.5 py-1 text-center font-bold font-mono text-slate-900">{h.weight}</td>
-                              <td className="px-2.5 py-1 pr-3 font-semibold text-slate-800 text-[11px] truncate max-w-[120px]">{h.name}</td>
+                              <td className="px-2.5 py-1 text-center font-bold font-mono text-slate-900">{display(h.weight)}</td>
+                              <td className="px-2.5 py-1 pr-3 font-semibold text-slate-800 text-[11px] truncate max-w-[120px]">{display(h.name)}</td>
                             </tr>
                           ))}
                         </tbody>

@@ -28,13 +28,14 @@ export interface HoldingLike {
   name?: string;
   isin?: string | null;
   ticker?: string | null;
+  securityNumber?: string | null;
   weight?: string | number | null;
   [k: string]: unknown;
 }
 
 /** Stable identifier for sorting: ISIN, else security number/ticker, else name. */
 function holdingIdentity(h: HoldingLike): string {
-  return String(h.isin ?? h.ticker ?? h.name ?? "").trim().toUpperCase();
+  return String(h.isin ?? h.ticker ?? h.securityNumber ?? h.name ?? "").trim().toUpperCase();
 }
 
 /** Canonical serialization: fixed field order, holdings sorted, values trimmed. */
@@ -44,6 +45,7 @@ export function canonicalizeHoldings(holdings: HoldingLike[]): string {
       name: String(h.name ?? "").trim(),
       isin: h.isin == null ? null : String(h.isin).trim().toUpperCase(),
       ticker: h.ticker == null ? null : String(h.ticker).trim().toUpperCase(),
+      securityNumber: h.securityNumber == null ? null : String(h.securityNumber).trim().toUpperCase(),
       weight: String(h.weight ?? "").replace("%", "").trim(),
     }))
     .sort((a, b) => holdingIdentity(a).localeCompare(holdingIdentity(b)));
