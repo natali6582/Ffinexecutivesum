@@ -125,78 +125,118 @@ function parseBroadHoldings(text: string): Holding[] {
   
   if (trimmed.includes("securityName") || trimmed.includes("holdingPercent")) {
     const list: Holding[] = [];
-    const parts = trimmed.split(/"securityName"\s*:/);
     
-    for (let i = 1; i < parts.length; i++) {
-      const piece = parts[i];
-      
-      let name = "נכס מותאם";
-      const nameMatch = piece.match(/^\s*"([^"]*)"/);
-      if (nameMatch) {
-        name = nameMatch[1];
-      }
-      
-      let assetClass = "מניות";
-      const typeMatch = piece.match(/"securityType"\s*:\s*"([^"]*)"/);
-      if (typeMatch) {
-        const rawType = typeMatch[1];
-        if (rawType.includes("מני") || rawType.includes("Stock") || rawType.includes("Equit")) assetClass = "מניות";
-        else if (rawType.includes("אג") || rawType.includes("Bond") || rawType.includes("Debt")) assetClass = "אג'ח";
-        else if (rawType.includes("קרנ") || rawType.includes("Fund") || rawType.includes("ETF")) assetClass = "קרנות";
-        else if (rawType.includes("מזו") || rawType.includes("Cash") || rawType.includes("Liqui")) assetClass = "מזומנים";
-        else assetClass = rawType;
-      }
-      
-      let isin = "";
-      const isinMatch = piece.match(/"ISIN"\s*:\s*"?([A-Z0-9]{12})"?/);
-      if (isinMatch) {
-        isin = isinMatch[1];
-      }
-      
-      let ticker = "";
-      const numMatch = piece.match(/"securityNumber"\s*:\s*"([^"]+)"/);
-      if (numMatch) {
-         ticker = numMatch[1];
-      } else if (isin) {
-         ticker = isin.substring(0, 4);
-      }
-      
-      let weight = "2.0%";
-      const weightMatch = piece.match(/"holdingPercent"\s*:\s*([0-9.]+)/);
-      if (weightMatch) {
-        weight = parseFloat(weightMatch[1]).toFixed(2) + "%";
-      }
-      
-      let sector = "כללי";
-      const sectorGroupIndex = piece.indexOf('"סקטורים"');
-      if (sectorGroupIndex !== -1) {
-        const afterSector = piece.substring(sectorGroupIndex, sectorGroupIndex + 500);
-        const secValMatch = afterSector.match(/"name"\s*:\s*"([^"]*)"/);
-        if (secValMatch) {
-          sector = secValMatch[1].replace(/\\"/g, '"');
+    // Balanced brace scanning JSON-salvage parser (extremely robust, truncation-tolerant)
+    let charIndex = trimmed.indexOf("{");
+    if (charIndex !== -1) {
+      const len = trimmed.length;
+      while (charIndex < len) {
+        const start = trimmed.indexOf("{", charIndex);
+        if (start === -1) break;
+        
+        let braceCount = 0;
+        let inString = false;
+        let escaped = false;
+        let end = start;
+        
+        for (let i = start; i < len; i++) {
+          const char = trimmed[i];
+          if (escaped) {
+            escaped = false;
+            continue;
+          }
+          if (char === "\\") {
+            escaped = true;
+            continue;
+          }
+          if (char === '"') {
+            inString = !inString;
+            continue;
+          }
+          if (!inString) {
+            if (char === "{") {
+              braceCount++;
+            } else if (char === "}") {
+              braceCount--;
+              if (braceCount === 0) {
+                end = i;
+                break;
+              }
+            }
+          }
+        }
+        
+        if (braceCount === 0 && end > start) {
+          const objectStr = trimmed.substring(start, end + 1);
+          try {
+            const raw = JSON.parse(objectStr);
+            if (raw && typeof raw === "object" && (raw.securityName !== undefined || raw.holdingPercent !== undefined)) {
+              const nameOriginal = raw.securityName || "";
+              
+              // Clean up system bracket artifacts natively and conservatively
+              const nameDisplay = nameOriginal.replace(/\s*\((?:!|[0-9]{1,2}|[0-9][A-Za-z]|[A-Za-z][0-9])\)\s*/g, " ")
+                .replace(/\s+/g, " ")
+                .trim() || "נכס מותאם";
+
+              const rawGroups = raw.allocationGroups || [];
+              const findGroupSingleName = (groupName: string): string => {
+                const group = rawGroups.find((g: any) => g.groupName === groupName);
+                const rows = group?.rows || [];
+                return rows.length === 1 ? (rows[0].name || "") : "";
+              };
+
+              const basicClass = findGroupSingleName("אלוקציה בסיסית");
+              let assetClass = "מניות";
+              if (basicClass) {
+                if (basicClass.includes("מני") || basicClass.includes("Stock") || basicClass.includes("Equit")) assetClass = "מניות";
+                else if (basicClass.includes("אג") || basicClass.includes("Bond") || basicClass.includes("Debt")) assetClass = "אג'ח";
+                else if (basicClass.includes("קרנ") || basicClass.includes("Fund") || basicClass.includes("ETF")) assetClass = "קרנות";
+                else if (basicClass.includes("מזו") || basicClass.includes("Cash") || basicClass.includes("Liqui")) assetClass = "מזומנים";
+                else assetClass = basicClass;
+              } else {
+                const rawType = raw.securityType || "";
+                if (rawType.includes("מני") || rawType.includes("Stock") || rawType.includes("Equit")) assetClass = "מניות";
+                else if (rawType.includes("אג") || rawType.includes("Bond") || rawType.includes("Debt")) assetClass = "אג'ח";
+                else if (rawType.includes("קרנ") || rawType.includes("Fund") || rawType.includes("ETF")) assetClass = "קרנות";
+                else if (rawType.includes("מזו") || rawType.includes("Cash") || rawType.includes("Liqui")) assetClass = "מזומנים";
+              }
+
+              const isin = raw.ISIN && raw.ISIN !== "null" ? raw.ISIN : "";
+              let ticker = "";
+              if (raw.ticker) {
+                ticker = raw.ticker;
+              } else if (isin) {
+                ticker = isin.substring(0, 4);
+              }
+
+              let weight = "2.00%";
+              if (raw.holdingPercent !== undefined && raw.holdingPercent !== null) {
+                weight = parseFloat(raw.holdingPercent).toFixed(2) + "%";
+              }
+
+              const sector = findGroupSingleName("סקטורים") || "כללי";
+              const region = findGroupSingleName("גיאוגרפי") || "גלובלי";
+
+              list.push({
+                id: "h-ext-json-" + Date.now() + "-" + list.length + "-" + Math.random().toString(36).substr(2, 4),
+                name: nameDisplay,
+                isin,
+                ticker,
+                weight,
+                sector,
+                assetClass,
+                region
+              });
+            }
+          } catch (e) {
+            // Salvage skip
+          }
+          charIndex = end + 1;
+        } else {
+          // Truncation boundary
+          break;
         }
       }
-      
-      let region = "גלובלי";
-      const regionGroupIndex = piece.indexOf('"גיאוגרפי"');
-      if (regionGroupIndex !== -1) {
-        const afterRegion = piece.substring(regionGroupIndex, regionGroupIndex + 500);
-        const regValMatch = afterRegion.match(/"name"\s*:\s*"([^"]*)"/);
-        if (regValMatch) {
-          region = regValMatch[1].replace(/\\"/g, '"');
-        }
-      }
-      
-      list.push({
-        id: "h-ext-json-" + Date.now() + "-" + i + "-" + Math.random().toString(36).substr(2, 4),
-        name,
-        isin,
-        ticker,
-        weight,
-        sector,
-        assetClass,
-        region
-      });
     }
     
     if (list.length > 0) {
