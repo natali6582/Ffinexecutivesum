@@ -564,6 +564,11 @@ export default function App() {
               </span>
               <span style="font-size: 10px; font-family: monospace; color: #64748b;">
                 מזהה נייר: ${cleanVal(update.identifier)} (${update.identifier_type === 1 ? "ISIN" : "מס׳ נייר"})
+                ${update.retrieved_at ? `
+                  <span style="margin-right: 8px; border-right: 1px solid #334155; padding-right: 8px;">
+                    נסרק ב: ${new Date(update.retrieved_at).toLocaleString('he-IL', { hour12: false })}
+                  </span>
+                ` : ""}
               </span>
             </div>
             

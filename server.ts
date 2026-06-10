@@ -354,7 +354,7 @@ CORE RULES FOR NARRATIVE REPORT PREPARATION:
     "המידע הוא ניתוח כללי על בסיס הנתונים שסופקו ומיועד לשימוש מקצועי של יועץ מורשה בלבד. אין לראות בו ייעוץ השקעות אישי, המלצה לקנייה, מכירה, החזקה או שינוי באחזקה כלשהי."
 11. COMPACT SMART AI CARD INDICATORS:
     Provide structured "ai_card" fields focusing on the single dominant holding (highest-weighted asset: ${dominantHolding.name}). Summarize details of major developments in the market affecting this holding inside "lead". Add indicator highlight chips ("toc_chips") and structured news summaries ("news_items") showing actual domains.
-12. LOOK-THROUGH FOR SPLIT-ALLOCATION FUNDS: For split-allocation funds where 'allocationSplit' is provided with multiple items (e.g. bond and equity split components), never assign or force a single asset class. Describe the split focusing strictly on exact input percentages from 'allocationSplit' (no rounding, no recomputation). If the narrative description or analytical evaluation classifies an asset class in a way that differs from the input table categorization (e.g. input says corporate but narrative discusses it as government), the input value wins in display tables; any differing analytics must go in the narrative only and must be explicitly labeled and described as "הערכה אנליטית".
+12. LOOK-THROUGH FOR SPLIT-ALLOCATION FUNDS: For split-allocation funds where 'allocationSplit' is provided with multiple items (e.g. bond and equity split components), never assign or force a single asset class. Describe the split focusing strictly on exact input percentages from 'allocationSplit' (no rounding, no recomputation). If the narrative description or analytical evaluation classifies an asset class in a way that differs from the input table categorization (e.g. input says corporate but narrative discusses it as government), the input value wins in display tables; any differing analytics must go in the narrative only and must be explicitly labeled and described as "הערכה אנליטית". Never assign a single asset class to a split fund; use the exact input percentages.
 
 STRICT COMPLIANCE CONTRAINTS:
 - ABSOLUTE WORDING RULE: The word "מומלץ" (recommended) or any of its derivative spellings MUST NEVER appear in any field in the entire JSON EXCEPT inside the compliance_note string. If you want to convey recommendations, DO NOT. Instead write "למעקב" (for monitoring) or "יש לעקוב" (monitoring is required).
@@ -722,9 +722,7 @@ You MUST return a flat JSON matching this schema:
           if (!update.source_url) {
             update.source_url = (update.sources && update.sources.length > 0) ? update.sources[0] : null;
           }
-          if (!update.retrieved_at) {
-            update.retrieved_at = new Date().toISOString();
-          }
+          update.retrieved_at = new Date().toISOString();
           if (!update.relevance_reason) {
             update.relevance_reason = `עדכון שוק מהותי ביחס לנייר הערך ${update.identifier || "הנכס"}, המשפיע על סביבת הסיכון והפעילות בסקטור זה.`;
           }

@@ -1029,7 +1029,11 @@ export const PRESET_PORTFOLIOS: PresetPortfolio[] = [
         weight: "2.19%",
         sector: "אג\"ח חו\"ל",
         assetClass: "אג'ח",
-        region: "גלובלי"
+        region: "גלובלי",
+        allocationSplit: [
+          { name: "אג\"ח קונצרניות", percents: 86.47 },
+          { name: "מניות", percents: 13.53 }
+        ]
       },
       {
         id: "usr-12",
