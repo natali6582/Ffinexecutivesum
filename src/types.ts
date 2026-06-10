@@ -8,6 +8,7 @@ export interface Holding {
   assetClass?: string;
   region?: string;
   securityNumber?: string;
+  allocationSplit?: { name: string; percents: number }[];
 }
 
 export interface FieldUpdate {

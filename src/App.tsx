@@ -184,6 +184,14 @@ function parseBroadHoldings(text: string): Holding[] {
                 .trim() || "נכס מותאם";
 
               const rawGroups = raw.allocationGroups || [];
+              const basicGroup = rawGroups.find((g: any) => g.groupName === "אלוקציה בסיסית");
+              const allocationSplit = basicGroup?.rows && basicGroup.rows.length > 0 
+                ? basicGroup.rows.map((r: any) => ({
+                    name: r.name || "",
+                    percents: r.percents !== undefined ? r.percents : 0
+                  }))
+                : undefined;
+
               const findGroupSingleName = (groupName: string): string => {
                 const group = rawGroups.find((g: any) => g.groupName === groupName);
                 const rows = group?.rows || [];
@@ -231,7 +239,8 @@ function parseBroadHoldings(text: string): Holding[] {
                 weight,
                 sector,
                 assetClass,
-                region
+                region,
+                allocationSplit
               });
             }
           } catch (e) {
@@ -273,6 +282,41 @@ function sanitizeHolding(h: Holding): Holding {
     ticker
   };
 }
+
+const getAssetClassDisplay = (h: Holding): string => {
+  if (h.allocationSplit && h.allocationSplit.length > 1) {
+    return h.allocationSplit.map(item => `${item.name} ${item.percents}%`).join(" / ");
+  }
+  return h.assetClass || "";
+};
+
+const sourceHref = (u: any) => {
+  if (u?.source_url && /^https?:\/\//.test(u.source_url)) return u.source_url;
+  const d = u?.source_domain || (typeof u === "string" ? u : null);
+  return d ? "https://" + String(d).replace(/^https?:\/\//, "") : null;
+};
+
+const getDomainText = (u: any): string => {
+  if (typeof u === "string") {
+    if (/^https?:\/\//.test(u)) {
+      try {
+        return new URL(u).hostname.replace("www.", "");
+      } catch {
+        return u;
+      }
+    }
+    return u;
+  }
+  if (u?.source_domain) return u.source_domain;
+  if (u?.source_url) {
+    try {
+      return new URL(u.source_url).hostname.replace("www.", "");
+    } catch {
+      return u.source_url;
+    }
+  }
+  return "מקור";
+};
 
 export default function App() {
   // State for raw list of assets
@@ -476,7 +520,7 @@ export default function App() {
         <td class="px-4 py-2.5 text-center font-mono text-slate-500 text-xs">${cleanVal(h.isin)}</td>
         <td class="px-4 py-2.5 text-center font-mono text-slate-500 text-xs">${cleanVal(h.ticker || h.securityNumber)}</td>
         <td class="px-4 py-2.5 text-right text-slate-600 text-xs">${cleanVal(h.sector)}</td>
-        <td class="px-4 py-2.5 text-right text-slate-600 text-xs">${cleanVal(h.assetClass)}</td>
+        <td class="px-4 py-2.5 text-right text-slate-600 text-xs">${cleanVal(getAssetClassDisplay(h))}</td>
       </tr>
     `).join('');
 
@@ -500,30 +544,14 @@ export default function App() {
           ? "background: #022c22; color: #6ee7b7; border: 1px solid #065f46;"
           : "background: #1e293b; color: #cbd5e1; border: 1px solid #334155;";
 
-        const getHostname = (url: string) => {
-          try {
-            return new URL(url).hostname.replace("www.", "");
-          } catch {
-            return "מקור";
-          }
-        };
-
-        const isValidUrl = (str: string) => {
-          try {
-            const url = new URL(str);
-            return url.protocol === "http:" || url.protocol === "https:";
-          } catch {
-            return false;
-          }
-        };
-
         const sourcesHtml = update.sources && update.sources.length > 0 
-          ? update.sources.map((src: string, sIdx: number) => {
-              const simpleName = getHostname(src);
-              if (isValidUrl(src)) {
-                return `<a href="${src}" target="_blank" style="background:#1e293b; color:#34d399; font-family:monospace; font-size:9px; padding:2px 6px; margin-right:4px; text-decoration:none; border-radius:3px;">${simpleName} ↗</a>`;
+          ? update.sources.map((src: any) => {
+              const href = sourceHref(src);
+              const domain = getDomainText(src);
+              if (href) {
+                return `<a href="${href}" target="_blank" rel="noopener" style="background:#1e293b; color:#34d399; font-family:monospace; font-size:9px; padding:2px 6px; margin-right:4px; text-decoration:none; border-radius:3px;">${domain} ↗</a>`;
               } else {
-                return `<span style="background:#1e293b; color:#94a3b8; font-family:monospace; font-size:9px; padding:2px 6px; margin-right:4px; border-radius:3px;">${src}</span>`;
+                return `<span style="background:#1e293b; color:#94a3b8; font-family:monospace; font-size:9px; padding:2px 6px; margin-right:4px; border-radius:3px;">${domain}</span>`;
               }
             }).join("")
           : `<span style="font-size:10px; color:#475569; font-style:italic;">אין מקורות</span>`;
@@ -844,6 +872,11 @@ export default function App() {
 
       <!-- Regulatory Compliance Footer section -->
       <footer class="mt-8 pt-4 border-t border-slate-200 text-right">
+        ${reportData.input_echo ? `
+        <div style="margin-bottom: 16px; text-align: right; font-family: sans-serif; font-size: 11px; font-weight: bold; color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 4px; direction: rtl;">
+          נותחו ${reportData.input_echo.holdings_count} אחזקות | סך משקלים: ${reportData.input_echo.weight_sum}% | טביעת אצבע: ${reportData.input_echo.fingerprint}
+        </div>
+        ` : ""}
         <div class="flex flex-col sm:flex-row justify-between items-center text-[10px] text-slate-400 leading-relaxed gap-6 flex-col-reverse">
           <p class="max-w-4xl text-slate-400 font-sans">
             ${rep.compliance_note}
@@ -953,15 +986,6 @@ export default function App() {
               ? "border-r-2 border-emerald-500 pr-4 text-right" 
               : "border-r-2 border-slate-700 pr-4 text-right";
             
-            // Try to extract hostname for cleaner display of source URLs
-            const getHostname = (url: string) => {
-              try {
-                return new URL(url).hostname.replace("www.", "");
-              } catch {
-                return "קישור מקור";
-              }
-            };
-
             return (
               <div key={idx} className={`${borderStyle} py-1 text-right`}>
                 <div className="flex items-center gap-2 flex-row-reverse justify-end flex-wrap mb-1.5">
@@ -972,6 +996,11 @@ export default function App() {
                   </span>
                   <span className="text-[10px] font-mono text-slate-500">
                     מזהה נייר: {display(update.identifier)} ({update.identifier_type === 1 ? "ISIN" : "מס׳ נייר"})
+                    {update.retrieved_at && (
+                      <span className="text-[10px] font-mono text-slate-500 mr-2 sm:mr-3 border-r border-slate-800 pr-2 sm:pr-3">
+                        נסרק ב: {new Date(update.retrieved_at).toLocaleString('he-IL', { hour12: false })}
+                      </span>
+                    )}
                   </span>
                 </div>
                 
@@ -994,26 +1023,26 @@ export default function App() {
                     {update.sources && update.sources.length > 0 ? (
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {update.sources.map((src, sIdx) => {
-                          const simpleName = getHostname(src);
-                          const isLink = src && (src.startsWith("http://") || src.startsWith("https://"));
-                          return isLink ? (
+                          const href = sourceHref(src);
+                          const domain = getDomainText(src);
+                          return href ? (
                             <a 
                               key={sIdx}
-                              href={src}
+                              href={href}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 font-mono text-[9px] px-1.5 py-0.5 rounded-xs tracking-tight transition-colors truncate max-w-[130px]"
-                              title={src}
+                              title={href}
                             >
-                              {simpleName} ↗
+                              {domain} ↗
                             </a>
                           ) : (
                             <span 
                               key={sIdx}
                               className="bg-slate-800 text-slate-400 font-mono text-[9px] px-1.5 py-0.5 rounded-xs tracking-tight truncate max-w-[130px]"
-                              title={src}
+                              title={domain}
                             >
-                              {src || "לא סופק"}
+                              {domain}
                             </span>
                           );
                         })}
@@ -1139,11 +1168,26 @@ export default function App() {
                   {item.sources && item.sources.length > 0 && (
                     <div className="mt-3.5 pt-2.5 border-t border-slate-850 flex items-center gap-1.5 justify-end flex-row-reverse flex-wrap">
                       <span className="text-[10px] font-mono text-slate-600 uppercase leading-none">מקורות:</span>
-                      {item.sources.map((src, sIdx) => (
-                        <span key={sIdx} className="text-[10px] font-mono text-slate-400 font-bold leading-none bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded-2xs">
-                          {src}
-                        </span>
-                      ))}
+                      {item.sources.map((src, sIdx) => {
+                        const href = sourceHref(src);
+                        const domain = getDomainText(src);
+                        return href ? (
+                          <a 
+                            key={sIdx}
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 font-bold leading-none bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded-2xs cursor-pointer"
+                            title={href}
+                          >
+                            {domain} ↗
+                          </a>
+                        ) : (
+                          <span key={sIdx} className="text-[10px] font-mono text-slate-400 font-bold leading-none bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded-2xs" title={domain}>
+                            {domain}
+                          </span>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1409,17 +1453,23 @@ export default function App() {
                         </td>
 
                         <td className="px-3 py-2 border-l border-slate-150">
-                          <select
-                            value={holding.assetClass || "מניות"}
-                            onChange={(e) => handleUpdateHolding(holding.id, "assetClass", e.target.value)}
-                            className="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-900 rounded-2xs px-1.5 py-1 text-xs outline-none"
-                          >
-                            <option value="מניות">מניות</option>
-                            <option value="אג'ח">אג"ח</option>
-                            <option value="קרנות">קרנות</option>
-                            <option value="מזומנים">מזומנים</option>
-                            <option value="אחר">אחר</option>
-                          </select>
+                          {holding.allocationSplit && holding.allocationSplit.length > 1 ? (
+                            <div className="text-right text-xs text-slate-700 font-semibold px-1 py-1 leading-tight select-none">
+                              {getAssetClassDisplay(holding)}
+                            </div>
+                          ) : (
+                            <select
+                              value={holding.assetClass || "מניות"}
+                              onChange={(e) => handleUpdateHolding(holding.id, "assetClass", e.target.value)}
+                              className="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-900 rounded-2xs px-1.5 py-1 text-xs outline-none"
+                            >
+                              <option value="מניות">מניות</option>
+                              <option value="אג'ח">אג"ח</option>
+                              <option value="קרנות">קרנות</option>
+                              <option value="מזומנים">מזומנים</option>
+                              <option value="אחר">אחר</option>
+                            </select>
+                          )}
                         </td>
 
                         <td className="px-3 py-2 border-l border-slate-150">
@@ -1862,6 +1912,11 @@ export default function App() {
 
               {/* Regulatory Compliance Footer section EXACTLY like design */}
               <footer className="mt-8 pt-4 border-t border-slate-200 text-right">
+                {reportData.input_echo && (
+                  <div className="mb-4 text-center sm:text-right font-sans text-xs font-semibold text-slate-600 bg-slate-100/60 border border-slate-200 px-3.5 py-2 rounded-xs text-right" dir="rtl">
+                    נותחו {reportData.input_echo.holdings_count} אחזקות | סך משקלים: {reportData.input_echo.weight_sum}% | טביעת אצבע: {reportData.input_echo.fingerprint}
+                  </div>
+                )}
                 <div className="flex flex-col sm:flex-row justify-between items-center text-[10.5px] text-slate-400 leading-relaxed gap-6 flex-col-reverse">
                   <p className="max-w-4xl text-slate-400">
                     {reportData.report.compliance_note}

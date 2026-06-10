@@ -75,14 +75,10 @@ export function buildInputEcho(
   fromCache: boolean,
   generatedAt: string,
 ): InputEcho {
-  const weightSum = holdings.reduce((acc, h) => {
-    const w = parseFloat(String(h.weight ?? "").replace("%", "").trim());
-    return acc + (Number.isFinite(w) ? w : 0);
-  }, 0);
   return {
     holdings_count: holdings.length,
-    weight_sum: Math.round(weightSum * 100) / 100,
-    identifiers: holdings.map(holdingIdentity).filter(Boolean).sort(),
+    weight_sum: +(holdings.reduce((a,h)=>a+(parseFloat(String(h.weight??"").replace("%",""))||0),0)).toFixed(2),
+    identifiers: holdings.map(h=>String(h.isin??h.ticker??h.name??"").trim().toUpperCase()).filter(Boolean).sort(),
     fingerprint: fingerprint.slice(0, 16),
     from_cache: fromCache,
     generated_at: generatedAt,
