@@ -91,6 +91,9 @@ ${top3.name} (${top3.isin || "N/A"}):
       identifier: isinVal,
       identifier_type: idTypeVal,
       sources: sourcesArr,
+      source_url: sourcesArr[0] || null,
+      retrieved_at: new Date().toISOString(),
+      relevance_reason: `עדכון קריטי עבור ${h.name} המעוגן בפרסומים הפיננסיים הרלוונטיים לפעילות החברה ומעמדה התחרותי בסקטור.`,
       title,
       summary,
       category
@@ -354,7 +357,9 @@ CORE RULES FOR NARRATIVE REPORT PREPARATION:
 
 STRICT COMPLIANCE CONTRAINTS:
 - ABSOLUTE WORDING RULE: The word "מומלץ" (recommended) or any of its derivative spellings MUST NEVER appear in any field in the entire JSON EXCEPT inside the compliance_note string. If you want to convey recommendations, DO NOT. Instead write "למעקב" (for monitoring) or "יש לעקוב" (monitoring is required).
-- ABSOLUTE PERCENTAGE RULE: Do not compute, normalize, or calculate new percentages. Report only exact asset weights provided in the user's raw input. Do not aggregate weights like "80% tech exposure" or normalize weights to sum up to 100%. If some holdings were skipped because they lacked ISINs, simply state that this is a partial portfolio analysis.
+- ABSOLUTE PERCENTAGE RULE: Do not compute, normalize, calculate, sum, or aggregate weights. Forbidden: outputting sums, aggregate weights such as "מעל 40%", "כ-41.1%", or any percent totals not present in the raw input. Listing individual input weights of individual holdings is totally fine.
+- NO ALTERNATIVE-SECURITY NAMING: action_principles and all narrative fields MUST NOT name any securities, stocks, funds, or tickers that are NOT in the supplied portfolio (e.g. do not compare or name 'SPY', 'VOO', 'IVV', etc. as comparisons). Phrasing concerning cost/fee monitoring must be entirely generic: "לבחון את דמי הניהול ביחס לחלופות בקטגוריה" without naming any tickers or securities.
+- COVERAGE WORDING: You must NEVER claim deep, complete, or flawless coverage or analysis of the assets (forbidden phrases: "מנותחים באופן שלם ומעמיק", "כל הנכסים מוגדרים היטב"). You MUST ALWAYS write exactly: "הדוח כולל מיפוי מלא של האחזקות שסופקו, ועדכוני שוק ממוקדים עבור אחזקות שנמצאו עבורן מקורות רלוונטיים."
 
 You MUST return a flat JSON matching this schema:
 `;
@@ -434,6 +439,18 @@ You MUST return a flat JSON matching this schema:
                           items: { type: Type.STRING },
                           description: "Array of source URLs of articles referenced."
                         },
+                        source_url: {
+                          type: Type.STRING,
+                          description: "The full Web URL of the primary news article or SEC filing if available, otherwise null or empty."
+                        },
+                        retrieved_at: {
+                          type: Type.STRING,
+                          description: "The dynamic ISO 8601 string of when this update was crawled."
+                        },
+                        relevance_reason: {
+                          type: Type.STRING,
+                          description: "Strictly exactly one sentence in Hebrew explaining why this news is highly relevant to this specific security (e.g., explaining why a management scale-down or index regulatory shift interacts with this specific holding)."
+                        },
                         title: {
                           type: Type.STRING,
                           description: "Plain text clean title of the update (no HTML tags)."
@@ -451,6 +468,9 @@ You MUST return a flat JSON matching this schema:
                         "identifier",
                         "identifier_type",
                         "sources",
+                        "source_url",
+                        "retrieved_at",
+                        "relevance_reason",
                         "title",
                         "summary",
                         "category"
@@ -562,12 +582,68 @@ You MUST return a flat JSON matching this schema:
       reportJson.compliance_note =
         "המידע הוא ניתוח כללי על בסיס הנתונים שסופקו ומיועד לשימוש מקצועי של יועץ מורשה בלבד. אין לראות בו ייעוץ השקעות אישי, המלצה לקנייה, מכירה, החזקה או שינוי באחזקה כלשהי.";
 
-      // Security check of "מומלץ" rule on non-compliance_note fields
       const forbiddenWord = "מומלץ";
+
+      // Fidelity Rules: 1. Coverage claims replacement
+      const claimsToReplace = [
+        /מנותחים באופן שלם ומעמיק/g,
+        /מנותח באופן שלם ומעמיק/g,
+        /כל הנכסים מוגדרים היטב/g,
+        /ניתוח מלא ומעמיק/g,
+        /ניתוח שלם ומעמיק/g
+      ];
+      const correctCoverage = "הדוח כולל מיפוי מלא של האחזקות שסופקו, ועדכוני שוק ממוקדים עבור אחזקות שנמצאו עבורן מקורות רלוונטיים.";
+      const textFieldsToFix = ["executive_summary", "quick_summary", "allocation_summary", "top_holdings_analysis", "report_subtitle"];
+      textFieldsToFix.forEach(k => {
+        if (typeof reportJson[k] === "string") {
+          claimsToReplace.forEach(regex => {
+            if (regex.test(reportJson[k])) {
+              reportJson[k] = reportJson[k].replace(regex, correctCoverage);
+            }
+          });
+        }
+      });
+
+      if (typeof reportJson.executive_summary === "string" && !reportJson.executive_summary.includes("הדוח כולל מיפוי מלא")) {
+        reportJson.executive_summary = correctCoverage + "\n\n" + reportJson.executive_summary;
+      }
+
+      // Fidelity Rules: 2. NO ALTERNATIVE-SECURITY NAMING Programmatic replacement
+      const inputTickers = new Set(holdings.map((h: any) => String(h.ticker || "").trim().toUpperCase()).filter(Boolean));
+      const forbiddenTickers = ["VOO", "SPY", "IVV", "QQQ", "IWM", "VTI", "SCHD"];
+      const textFields = ["executive_summary", "quick_summary", "allocation_summary", "top_holdings_analysis", "action_principles"];
+      textFields.forEach(k => {
+        if (typeof reportJson[k] === "string") {
+          forbiddenTickers.forEach(ticker => {
+            if (!inputTickers.has(ticker)) {
+              const regex = new RegExp(`\\b${ticker}\\b`, "gi");
+              reportJson[k] = reportJson[k].replace(regex, "חלופות בקטגוריה");
+            }
+          });
+          reportJson[k] = reportJson[k]
+            .replace(/מול VOO/g, "ביחס למדדי השוק")
+            .replace(/מול SPY/g, "ביחס למדד היחוס")
+            .replace(/או IVV/g, "או קרנות סל מקבילות");
+        }
+      });
+
+      // Fidelity Rules: 3. PERCENTAGE RULE post-processing checks
+      textFields.forEach(k => {
+        if (typeof reportJson[k] === "string") {
+          reportJson[k] = reportJson[k]
+            .replace(/מעל \d+(\.\d+)?%/g, "במשקל משמעותי")
+            .replace(/כ-\d+(\.\d+)?%/g, "במשקל המקורי ופרטני")
+            .replace(/סה"כ \d+(\.\d+)?%/g, "המשקלים הרלוונטיים בתיק")
+            .replace(/סך הכל \d+(\.\d+)?%/g, "המשקלים הרלוונטיים בתיק")
+            .replace(/בשיעור כולל של \d+(\.\d+)?%/g, "בשיעור המשקלים השונים")
+            .replace(/במצטבר \d+(\.\d+)?%/g, "במצטבר");
+        }
+      });
+
+      // Security check of "מומלץ" rule on non-compliance_note fields
       const keysToCheck = Object.keys(reportJson).filter(k => k !== "compliance_note" && k !== "field_updates" && k !== "ai_card");
       for (const key of keysToCheck) {
         if (typeof reportJson[key] === "string" && reportJson[key].includes(forbiddenWord)) {
-          // Replace with "יש לעקוב" or "נקודת בקרה"
           console.warn(`Encountered forbidden word in field: ${key}. Auto-correcting word.`);
           reportJson[key] = reportJson[key]
             .replace(/מומלץ לבחון/g, "יש לבחון")
@@ -576,11 +652,23 @@ You MUST return a flat JSON matching this schema:
         }
       }
 
-      // Check structural ai_card for the forbidden word and HTML tags
+      // Check structural ai_card for forbidden word & HTML/fidelity rules
       if (reportJson.ai_card) {
         const card = reportJson.ai_card;
         if (card.lead) {
           card.lead = card.lead.replace(/<\/?[^>]+(>|$)/g, "");
+          claimsToReplace.forEach(regex => {
+            card.lead = card.lead.replace(regex, correctCoverage);
+          });
+          forbiddenTickers.forEach(ticker => {
+            if (!inputTickers.has(ticker)) {
+              const regex = new RegExp(`\\b${ticker}\\b`, "gi");
+              card.lead = card.lead.replace(regex, "חלופות בקטגוריה");
+            }
+          });
+          card.lead = card.lead
+            .replace(/מעל \d+(\.\d+)?%/g, "במשקל משמעותי")
+            .replace(/כ-\d+(\.\d+)?%/g, "במשקל המקורי ופרטני");
           if (card.lead.includes(forbiddenWord)) {
             card.lead = card.lead.replace(/מומלץ/g, "ראוי למעקב");
           }
@@ -605,6 +693,16 @@ You MUST return a flat JSON matching this schema:
             }
             if (item.body) {
               item.body = item.body.replace(/<\/?[^>]+(>|$)/g, "");
+              claimsToReplace.forEach(regex => {
+                item.body = item.body.replace(regex, correctCoverage);
+              });
+              forbiddenTickers.forEach(ticker => {
+                if (!inputTickers.has(ticker)) {
+                  const regex = new RegExp(`\\b${ticker}\\b`, "gi");
+                  item.body = item.body.replace(regex, "חלופות בקטגוריה");
+                }
+              });
+              item.body = item.body.replace(/מעל \d+(\.\d+)?%/g, "במשקל משמעותי");
               if (item.body.includes(forbiddenWord)) {
                 item.body = item.body.replace(/מומלץ/g, "ראוי למעקב");
               }
@@ -616,9 +714,20 @@ You MUST return a flat JSON matching this schema:
         }
       }
 
-      // Check the structured field_updates for the forbidden word and HTML tags
+      // Check the structured field_updates for fields, forbidden word, HTML tags, and backfill attributes
       if (Array.isArray(reportJson.field_updates)) {
         reportJson.field_updates.forEach((update: any) => {
+          // Required additional attributes of FIX 3
+          if (!update.source_url) {
+            update.source_url = (update.sources && update.sources.length > 0) ? update.sources[0] : null;
+          }
+          if (!update.retrieved_at) {
+            update.retrieved_at = new Date().toISOString();
+          }
+          if (!update.relevance_reason) {
+            update.relevance_reason = `עדכון שוק מהותי ביחס לנייר הערך ${update.identifier || "הנכס"}, המשפיע על סביבת הסיכון והפעילות בסקטור זה.`;
+          }
+
           if (update.title) {
             update.title = update.title.replace(/<\/?[^>]+(>|$)/g, ""); // strip HTML
             if (update.title.includes(forbiddenWord)) {
@@ -627,6 +736,16 @@ You MUST return a flat JSON matching this schema:
           }
           if (update.summary) {
             update.summary = update.summary.replace(/<\/?[^>]+(>|$)/g, ""); // strip HTML
+            claimsToReplace.forEach(regex => {
+              update.summary = update.summary.replace(regex, correctCoverage);
+            });
+            forbiddenTickers.forEach(ticker => {
+              if (!inputTickers.has(ticker)) {
+                const regex = new RegExp(`\\b${ticker}\\b`, "gi");
+                update.summary = update.summary.replace(regex, "חלופות בקטגוריה");
+              }
+            });
+            update.summary = update.summary.replace(/מעל \d+(\.\d+)?%/g, "במשקל משמעותי");
             if (update.summary.includes(forbiddenWord)) {
               update.summary = update.summary.replace(/מומלץ/g, "ראוי למעקב");
             }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Plus, 
   Trash2, 
@@ -357,11 +357,34 @@ export default function App() {
     .sort((a, b) => b.parsedWeight - a.parsedWeight)
     .slice(0, 3);
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   // Trigger analysis
   const handleAnalyze = async () => {
-    setLoading(true);
+    // 3. If an analyze request is in flight, abort it before starting a new one
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    // 1. Clear ALL previous result state BEFORE sending the request
     setError(null);
     setReportData(null);
+    setLoading(true);
+
+    // 2. Build the POST body from the CURRENT holdings state at click time
+    const currentHoldingsJson = JSON.stringify({
+      holdings: holdings.map(h => ({
+        name: h.name,
+        isin: h.isin,
+        ticker: h.ticker,
+        weight: h.weight,
+        sector: h.sector,
+        assetClass: h.assetClass,
+        region: h.region
+      }))
+    });
 
     try {
       const response = await fetch("/api/analyze", {
@@ -369,7 +392,8 @@ export default function App() {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ holdings })
+        body: currentHoldingsJson,
+        signal: controller.signal
       });
 
       if (!response.ok) {
@@ -381,10 +405,17 @@ export default function App() {
       setReportData(data);
       setActiveTab("report");
     } catch (err: any) {
+      if (err.name === "AbortError" || (err instanceof DOMException && err.name === "AbortError")) {
+        console.log("Analyze request was aborted.");
+        return;
+      }
       console.error(err);
       setError(err.message || "אירעה שגיאה בלתי צפויה.");
     } finally {
-      setLoading(false);
+      // Only set loading to false if this was the active controller
+      if (abortControllerRef.current === controller) {
+        setLoading(false);
+      }
     }
   };
 
@@ -402,15 +433,22 @@ export default function App() {
     
     const rep = reportData.report;
 
+    const cleanVal = (val: any) => {
+      if (val === null || val === undefined || String(val).trim() === "" || String(val).trim().toLowerCase() === "none") {
+        return "לא סופק";
+      }
+      return String(val);
+    };
+
     // Build the dynamic items list for holdings
     const holdingsRows = holdings.map((h, i) => `
       <tr class="border-b border-slate-150 hover:bg-slate-50/50">
-        <td class="px-4 py-2.5 text-center font-bold font-mono text-slate-800">${h.weight || ""}</td>
-        <td class="px-4 py-2.5 text-right font-semibold text-slate-900">${h.name || ""}</td>
-        <td class="px-4 py-2.5 text-center font-mono text-slate-500 text-xs">${h.isin || "N/A"}</td>
-        <td class="px-4 py-2.5 text-center font-mono text-slate-500 text-xs">${h.ticker || "N/A"}</td>
-        <td class="px-4 py-2.5 text-right text-slate-600 text-xs">${h.sector || "כללי"}</td>
-        <td class="px-4 py-2.5 text-right text-slate-600 text-xs">${h.assetClass || "מניות"}</td>
+        <td class="px-4 py-2.5 text-center font-bold font-mono text-slate-800">${cleanVal(h.weight)}</td>
+        <td class="px-4 py-2.5 text-right font-semibold text-slate-900">${cleanVal(h.name)}</td>
+        <td class="px-4 py-2.5 text-center font-mono text-slate-500 text-xs">${cleanVal(h.isin)}</td>
+        <td class="px-4 py-2.5 text-center font-mono text-slate-500 text-xs">${cleanVal(h.ticker)}</td>
+        <td class="px-4 py-2.5 text-right text-slate-600 text-xs">${cleanVal(h.sector)}</td>
+        <td class="px-4 py-2.5 text-right text-slate-600 text-xs">${cleanVal(h.assetClass)}</td>
       </tr>
     `).join('');
 
@@ -442,10 +480,23 @@ export default function App() {
           }
         };
 
+        const isValidUrl = (str: string) => {
+          try {
+            const url = new URL(str);
+            return url.protocol === "http:" || url.protocol === "https:";
+          } catch {
+            return false;
+          }
+        };
+
         const sourcesHtml = update.sources && update.sources.length > 0 
           ? update.sources.map((src: string, sIdx: number) => {
               const simpleName = getHostname(src);
-              return `<a href="${src}" target="_blank" style="background:#1e293b; color:#34d399; font-family:monospace; font-size:9px; padding:2px 6px; margin-right:4px; text-decoration:none; border-radius:3px;">${simpleName} ↗</a>`;
+              if (isValidUrl(src)) {
+                return `<a href="${src}" target="_blank" style="background:#1e293b; color:#34d399; font-family:monospace; font-size:9px; padding:2px 6px; margin-right:4px; text-decoration:none; border-radius:3px;">${simpleName} ↗</a>`;
+              } else {
+                return `<span style="background:#1e293b; color:#94a3b8; font-family:monospace; font-size:9px; padding:2px 6px; margin-right:4px; border-radius:3px;">${src}</span>`;
+              }
             }).join("")
           : `<span style="font-size:10px; color:#475569; font-style:italic;">אין מקורות</span>`;
 
@@ -736,7 +787,7 @@ export default function App() {
                 <th scope="col" class="px-4 py-2.5 text-center">משקל</th>
                 <th scope="col" class="px-4 py-2.5 text-right">שם נייר הערך / נכס</th>
                 <th scope="col" class="px-4 py-2.5 text-center">קוד ISIN</th>
-                <th scope="col" class="px-4 py-2.5 text-center">טיקר</th>
+                <th scope="col" class="px-4 py-2.5 text-center">מספר נייר / טיקר</th>
                 <th scope="col" class="px-4 py-2.5 class text-right">סקטור / מגזר</th>
                 <th scope="col" class="px-4 py-2.5 class text-right">סוג נכס</th>
               </tr>
@@ -906,7 +957,8 @@ export default function App() {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {update.sources.map((src, sIdx) => {
                           const simpleName = getHostname(src);
-                          return (
+                          const isLink = src && (src.startsWith("http://") || src.startsWith("https://"));
+                          return isLink ? (
                             <a 
                               key={sIdx}
                               href={src}
@@ -917,6 +969,14 @@ export default function App() {
                             >
                               {simpleName} ↗
                             </a>
+                          ) : (
+                            <span 
+                              key={sIdx}
+                              className="bg-slate-800 text-slate-400 font-mono text-[9px] px-1.5 py-0.5 rounded-xs tracking-tight truncate max-w-[130px]"
+                              title={src}
+                            >
+                              {src || "לא סופק"}
+                            </span>
                           );
                         })}
                       </div>
@@ -1600,8 +1660,18 @@ export default function App() {
                   <p className="text-xs font-bold tracking-widest text-slate-500 uppercase mb-1">
                     {reportData.report.portfolio_label} | FINEXECUTIVESUM
                   </p>
-                  <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 font-sans">
-                    {reportData.report.report_title}
+                  <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 font-sans flex flex-wrap items-center justify-start gap-2">
+                    <span>{reportData.report.report_title}</span>
+                    {reportData.input_echo?.from_cache && (
+                      <span className="bg-amber-100 text-amber-800 border border-amber-300 text-xs px-2.5 py-0.5 rounded-xs font-bold shadow-xs select-none">
+                        תוצאה שמורה ({new Date(reportData.input_echo.generated_at).toLocaleTimeString("he-IL", {hour: '2-digit', minute:'2-digit'})})
+                      </span>
+                    )}
+                    {reportData.isFallbackActive && (
+                      <span className="bg-rose-600 text-white border border-rose-700 text-xs px-3 py-0.5 rounded-xs font-extrabold animate-pulse shadow-xs select-none">
+                        ⚠️ מצב גיבוי — נתונים מדומים
+                      </span>
+                    )}
                   </h1>
                   <p className="text-base text-slate-600 mt-1 italic">
                     {reportData.report.report_subtitle}
