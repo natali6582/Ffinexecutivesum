@@ -200,6 +200,20 @@ export const PRESET_PORTFOLIOS: PresetPortfolio[] = [
         sector: "מניות ישראל",
         assetClass: "מניות",
         region: "ישראל"
+      },
+      {
+        id: "usr4-20",
+        name: "קרן מבוזרת אלוקציה מנוהלת 80/20",
+        isin: "IL0051208278",
+        ticker: "5120827",
+        weight: "2.50%",
+        sector: "קרנות מעורבות",
+        assetClass: "קרנות",
+        region: "גלובלי",
+        allocationSplit: [
+          { name: "אג\"ח קונצרניות", percents: 82.78 },
+          { name: "מניות", percents: 17.22 }
+        ]
       }
     ]
   },
@@ -1031,8 +1045,8 @@ export const PRESET_PORTFOLIOS: PresetPortfolio[] = [
         assetClass: "אג'ח",
         region: "גלובלי",
         allocationSplit: [
-          { name: "אג\"ח קונצרניות", percents: 86.47 },
-          { name: "מניות", percents: 13.53 }
+          { name: "אג\"ח קונצרניות", percents: 82.78 },
+          { name: "מניות", percents: 17.22 }
         ]
       },
       {

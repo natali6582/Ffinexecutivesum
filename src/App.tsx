@@ -183,14 +183,45 @@ function parseBroadHoldings(text: string): Holding[] {
                 .replace(/\s+/g, " ")
                 .trim() || "נכס מותאם";
 
-              const rawGroups = raw.allocationGroups || [];
-              const basicGroup = rawGroups.find((g: any) => g.groupName === "אלוקציה בסיסית");
-              const allocationSplit = basicGroup?.rows && basicGroup.rows.length > 0 
-                ? basicGroup.rows.map((r: any) => ({
+              const rawGroups = raw.allocationGroups || raw.allocation_groups_raw || [];
+              const basicGroup = rawGroups.find((g: any) => g.groupName === "אלוקציה בסיסית" || g.groupName === "BASIC");
+              
+              let allocationSplit = undefined;
+              if (basicGroup?.rows && basicGroup.rows.length > 0) {
+                allocationSplit = basicGroup.rows.map((r: any) => {
+                  let percentsVal: string | number = r.percents !== undefined ? r.percents : 0;
+                  try {
+                    const nameEscaped = (r.name || "").replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                    const regex = new RegExp(`"name"\\s*:\\s*"${nameEscaped}"\\s*,\\s*"percents"\\s*:\\s*([0-9.]+)`);
+                    const match = objectStr.match(regex);
+                    if (match && match[1]) {
+                      percentsVal = match[1];
+                    } else {
+                      const regexAlternative = new RegExp(`"percents"\\s*:\\s*([0-9.]+)\\s*,\\s*"name"\\s*:\\s*"${nameEscaped}"`);
+                      const matchAlt = objectStr.match(regexAlternative);
+                      if (matchAlt && matchAlt[1]) {
+                        percentsVal = matchAlt[1];
+                      }
+                    }
+                  } catch (regexErr) {
+                    // ignore
+                  }
+                  return {
                     name: r.name || "",
-                    percents: r.percents !== undefined ? r.percents : 0
-                  }))
-                : undefined;
+                    percents: percentsVal
+                  };
+                });
+              } else if (raw.allocationSplit && raw.allocationSplit.length > 0) {
+                allocationSplit = raw.allocationSplit.map((r: any) => ({
+                  name: r.name || "",
+                  percents: r.percents !== undefined ? r.percents : 0
+                }));
+              } else if (raw.allocation_basic && raw.allocation_basic.length > 0) {
+                allocationSplit = raw.allocation_basic.map((r: any) => ({
+                  name: r.name || r.name_input || "",
+                  percents: r.percents !== undefined ? r.percents : 0
+                }));
+              }
 
               const findGroupSingleName = (groupName: string): string => {
                 const group = rawGroups.find((g: any) => g.groupName === groupName);
