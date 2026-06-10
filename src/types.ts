@@ -57,10 +57,20 @@ export interface SearchedHoldingSummary {
   sourcesCount: number;
 }
 
+export interface InputEcho {
+  holdings_count: number;
+  weight_sum: number;
+  identifiers: string[];
+  fingerprint: string;
+  from_cache: boolean;
+  generated_at: string;
+}
+
 export interface AnalysisResponse {
   report: PortfolioReport;
   topHoldingsSkipped: number;
   searchedHoldings: SearchedHoldingSummary[];
   field_updates: FieldUpdate[];
   ai_card: AICard;
+  input_echo?: InputEcho;
 }

@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import { AnalysisCache, portfolioFingerprint, buildInputEcho } from "./analysisCache";
 
 dotenv.config();
 
@@ -153,12 +154,35 @@ async function startServer() {
     },
   });
 
+  const analysisCache = new AnalysisCache<any>();
+
   // API Route
   app.post("/api/analyze", async (req, res) => {
+    let fingerprint = "";
     try {
       const { holdings } = req.body;
       if (!holdings || !Array.isArray(holdings) || holdings.length === 0) {
         return res.status(400).json({ error: "No holdings data provided." });
+      }
+
+      fingerprint = portfolioFingerprint(holdings);
+
+      // Support explicit bypass with "noCache": true
+      const bypass = req.body?.noCache === true;
+      if (!bypass) {
+        const hit = analysisCache.get(fingerprint);
+        if (hit) {
+          console.log(`[Cache Hit] Serving cached report for fingerprint: ${fingerprint.slice(0,16)}`);
+          return res.json({
+            ...hit.payload,
+            input_echo: buildInputEcho(
+              holdings,
+              fingerprint,
+              true,
+              new Date(hit.createdAt).toISOString()
+            )
+          });
+        }
       }
 
       // Step 2: Identify the TOP 4 holdings by weight that have valid ISIN or ticker/name
@@ -613,7 +637,7 @@ You MUST return a flat JSON matching this schema:
         });
       }
 
-      return res.json({
+      const responsePayload = {
         report: reportJson,
         topHoldingsSkipped: holdings.length - holdingsWithISIN.length,
         searchedHoldings: searchResults.map(s => ({ name: s.name, isin: s.isin, query: s.query, sourcesCount: (s.sources ? s.sources.length : 0) })),
@@ -621,11 +645,29 @@ You MUST return a flat JSON matching this schema:
         ai_card: reportJson.ai_card,
         isFallbackActive,
         fallbackReason
+      };
+
+      if (!isFallbackActive) {
+        console.log(`[Cache Miss] Saving report to cache for fingerprint: ${fingerprint.slice(0, 16)}`);
+        analysisCache.set(fingerprint, responsePayload);
+      } else {
+        console.log(`[Cache Miss] Simulated/parametric fallback generated; skipping cache set for fingerprint: ${fingerprint.slice(0, 16)}`);
+      }
+
+      return res.json({
+        ...responsePayload,
+        input_echo: buildInputEcho(
+          holdings,
+          fingerprint,
+          false,
+          new Date().toISOString()
+        )
       });
     } catch (err: any) {
       console.error("General API analytics routing panic. Recovering with absolute level 2 local simulation data:", err);
       try {
         const fallbackLocal = generateLocalFallbackReport(req.body.holdings || []);
+        const cleanFingerprint = fingerprint || portfolioFingerprint(req.body.holdings || []);
         return res.json({
           report: fallbackLocal,
           topHoldingsSkipped: 0,
@@ -633,7 +675,13 @@ You MUST return a flat JSON matching this schema:
           field_updates: fallbackLocal.field_updates || [],
           ai_card: fallbackLocal.ai_card,
           isFallbackActive: true,
-          fallbackReason: err.message || "General exception"
+          fallbackReason: err.message || "General exception",
+          input_echo: buildInputEcho(
+            req.body.holdings || [],
+            cleanFingerprint,
+            false,
+            new Date().toISOString()
+          )
         });
       } catch (panicErr) {
         console.error("Catastrophic fallback crash:", panicErr);

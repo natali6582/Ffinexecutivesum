@@ -307,6 +307,8 @@ export default function App() {
   const handleLoadPreset = (index: number) => {
     setSelectedPresetIndex(index);
     setHoldings(JSON.parse(JSON.stringify(PRESET_PORTFOLIOS[index].holdings)));
+    setReportData(null);
+    setActiveTab("edit");
   };
 
   // Input editing handlers
@@ -317,6 +319,7 @@ export default function App() {
       }
       return h;
     }));
+    setReportData(null);
   };
 
   const handleAddHolding = () => {
@@ -331,10 +334,12 @@ export default function App() {
       region: "גלובלי"
     };
     setHoldings(prev => [...prev, newItem]);
+    setReportData(null);
   };
 
   const handleRemoveHolding = (id: string) => {
     setHoldings(prev => prev.filter(h => h.id !== id));
+    setReportData(null);
   };
 
   // Computations
@@ -963,6 +968,8 @@ export default function App() {
         return;
       }
       setHoldings(parsed);
+      setReportData(null);
+      setActiveTab("edit");
       setExtractorSuccess(true);
       setExtractorText("");
       setSelectedPresetIndex(-1); // Resets preset selection indicators
@@ -1603,8 +1610,32 @@ export default function App() {
                 <div className="text-left border-r-2 md:border-r-0 md:border-l-2 border-slate-200 pr-4 md:pr-0 md:pl-6 shrink-0 w-full sm:w-auto text-right sm:text-left">
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">סטטוס דיווח</div>
                   <div className="text-xl sm:text-2xl font-mono font-black text-emerald-600 uppercase">מבוקר ומאושר</div>
+                  {reportData.input_echo && (
+                    <div className="mt-1 text-[10px] font-mono font-bold text-right sm:text-left">
+                      {reportData.input_echo.from_cache ? (
+                        <span className="bg-amber-150 text-amber-800 border border-amber-300 px-1.5 py-0.5 rounded-xs text-[9px] uppercase tracking-wider font-extrabold shadow-2xs select-none">CACHE HIT</span>
+                      ) : (
+                        <span className="bg-blue-150 text-blue-800 border border-blue-300 px-1.5 py-0.5 rounded-xs text-[9px] uppercase tracking-wider font-extrabold shadow-2xs select-none">FRESH REQS</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </header>
+
+              {/* Cache input_echo audit trail block */}
+              {reportData.input_echo && (
+                <div className="bg-slate-50 border border-slate-200 px-4 py-3 text-right flex flex-col md:flex-row-reverse justify-between items-start md:items-center rounded-sm gap-2.5">
+                  <div className="flex items-center gap-1.5 flex-row-reverse text-xs text-slate-600 font-sans">
+                    <span className="font-extrabold text-slate-800">סימוני בקרת אימון (QA Echo):</span>
+                    <span className="bg-slate-250 border border-slate-300 text-slate-700 font-mono text-[10px] px-1.5 py-1 rounded-xs">נכסים: {reportData.input_echo.holdings_count}</span>
+                    <span className="bg-slate-250 border border-slate-300 text-slate-700 font-mono text-[10px] px-1.5 py-1 rounded-xs">משקל קבוע: {reportData.input_echo.weight_sum}%</span>
+                    <span className="bg-slate-250 border border-slate-300 text-slate-750 font-mono text-[10px] px-1.5 py-1 rounded-xs select-all">טביעת אצבע: {reportData.input_echo.fingerprint}</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-mono">
+                    נוצר ב- {new Date(reportData.input_echo.generated_at).toLocaleString("he-IL")} {reportData.input_echo.from_cache && "(שוחזר מ-Cache)"}
+                  </div>
+                </div>
+              )}
 
               {/* Grid 12 Columns Layout */}
               <div className="grid grid-cols-12 gap-8">
